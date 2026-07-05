@@ -1,6 +1,10 @@
 import app from './app.js';
 import { config } from './config/env.js';
 import { logger } from './common/logger/logger.js';
+import { connectDatabase, disconnectDatabase } from './database.js';
+
+// Connect to database prior to listening on the server port
+await connectDatabase();
 
 const server = app.listen(config.port, () => {
   logger.info(`Server is running in ${config.nodeEnv} mode on port ${config.port}`);
@@ -24,14 +28,16 @@ process.on('uncaughtException', (err: Error) => {
 const gracefulShutdown = (signal: string) => {
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
   
-  server.close(() => {
+  server.close(async () => {
     logger.info('HTTP server closed.');
+    await disconnectDatabase();
     process.exit(0);
   });
 
   // Force shut down after 10s if connections remain active
-  setTimeout(() => {
+  setTimeout(async () => {
     logger.error('Could not close active connections in time, forcing shutdown');
+    await disconnectDatabase();
     process.exit(1);
   }, 10000);
 };
