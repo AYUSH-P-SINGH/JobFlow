@@ -1,3 +1,4 @@
+// Global operational and unexpected error handler middleware
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
 import { Prisma } from '@prisma/client';
