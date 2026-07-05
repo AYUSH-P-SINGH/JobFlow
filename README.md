@@ -4,18 +4,25 @@ Distributed Job Queue & Workflow Platform (BullMQ + Temporal Alternative)
 
 JobFlow is a high-performance distributed task processing platform built to handle asynchronous workloads, retry policies, priority queues, and workers autoscaling. Users submit jobs, and worker nodes consume them from a distributed queue to process them independently.
 
-## Project Phase: Phase 2 — Authentication Module Completed
+## Project Phase: Phase 3 — Database Integration Completed
 
-In Phase 2, we implemented a complete in-memory authentication module. We migrated the codebase to a clean modular architecture separating logic into reusable `common` layers and business-focused `modules`. Key features include password hashing via `bcryptjs`, access and refresh JWT tokens, token rotation support, Zod-based request validation, Winston logger integration for security logs, and a comprehensive integration test suite using Node's native test runner.
+In Phase 3, we integrated PostgreSQL database persistence into our Authentication Module using Prisma ORM, replacing the temporary in-memory user repository. Key achievements include:
+* Exposing a PostgreSQL container service configuration via `docker-compose.yml`.
+* Defining standard Prisma schemas for `User` and `RefreshToken` models with proper relations and cascades.
+* Implementing strict operational error mapping in the global middleware to format database constraint errors.
+* Introducing database connection checks during server boot and verifying database integration status through `/health` checks.
+* Implementing a programmatic database seeding workflow for default credentials setup.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Phase 2 Core Tech Stack
+### Phase 3 Core Tech Stack
 * **Runtime:** Node.js (v26.3.0)
 * **Framework:** Express.js (v4)
 * **Language:** TypeScript
+* **Database:** PostgreSQL (v16)
+* **ORM:** Prisma ORM (v5)
 * **Logger:** Winston (structured logs / JSON formatter)
 * **HTTP Log middleware:** Morgan
 * **Security:** Helmet & CORS
@@ -26,8 +33,6 @@ In Phase 2, we implemented a complete in-memory authentication module. We migrat
 
 ### Planned Future Stack
 * **Queue System:** BullMQ (powered by Redis)
-* **Database:** PostgreSQL
-* **ORM:** Prisma (Phase 3 Integration)
 * **Deployment:** Docker & Kubernetes
 * **Monitoring:** Prometheus & Grafana
 * **CI/CD:** GitHub Actions
@@ -94,8 +99,24 @@ Make sure you have [Node.js](https://nodejs.org/) installed (v18 or higher recom
    npm install
    ```
 
+4. Start PostgreSQL database container:
+   ```bash
+   # Make sure Docker is running on your system, then:
+   docker compose up -d
+   ```
+
+5. Run database migrations to set up tables:
+   ```bash
+   npx prisma migrate dev --name init
+   ```
+
+6. Run the database seed script to create the default admin user:
+   ```bash
+   npx prisma db seed
+   ```
+
 ### Running in Development Mode
-Start the development server with live reload enabled using `ts-node-dev`:
+Start the development server with live reload enabled:
 ```bash
 npm run dev
 ```
@@ -113,7 +134,7 @@ npm run start
 ```
 
 ### Running the Test Suite
-Run the suite of integration and unit tests using Node's native test runner:
+Ensure the PostgreSQL database is running, then run the integration and unit tests:
 ```bash
 npm run test
 ```
