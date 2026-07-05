@@ -1,11 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service.js';
+import { logger } from '../../common/logger/logger.js';
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { email, password } = req.body;
       const result = await AuthService.register(email, password);
+
+      logger.info(`User Registered: ${result.user.email} (ID: ${result.user.id})`);
+
       res.status(201).json({
         success: true,
         data: result,
