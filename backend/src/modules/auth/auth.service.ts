@@ -1,8 +1,8 @@
 import bcrypt from 'bcryptjs';
 import { userRepository } from './auth.repository.js';
 import { AuthResponse } from './auth.types.js';
-import { generateAccessToken, generateRefreshToken } from '../../common/utils/jwt.js';
-import { ConflictError, BadRequestError } from '../../common/errors/errors.js';
+import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../common/utils/jwt.js';
+import { ConflictError, BadRequestError, UnauthorizedError } from '../../common/errors/errors.js';
 
 // Initialize a default admin user for convenience testing
 const initAdminUser = async () => {
@@ -60,17 +60,69 @@ export class AuthService {
   }
 
   static async login(email: string, password: string): Promise<AuthResponse> {
+    if (!email || !password) {
+      throw new BadRequestError('Email and password are required');
+    }
+
+    const user = await userRepository.findByEmail(email);
+    if (!user) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    const isMatch = await bcrypt.compare(password, user.passwordHash);
+    if (!isMatch) {
+      throw new UnauthorizedError('Invalid credentials');
+    }
+
+    const accessToken = generateAccessToken(user.id, user.role);
+    const refreshToken = generateRefreshToken(user.id, user.role);
+
+    await userRepository.addRefreshToken(refreshToken);
+
     return {
-      user: { id: 'temp-id', email, role: 'USER' },
-      accessToken: 'temp-token',
-      refreshToken: 'temp-refresh-token',
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+      },
+      accessToken,
+      refreshToken,
     };
   }
 
-  static async refresh(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+  static async refresh(token: string): Promise<{ accessToken: string; refreshToken: string }> {
+    if (!token) {
+      throw new BadRequestError('Refresh token is required');
+    }
+
+    let payload: any;
+    try {
+      payload = verifyRefreshToken(token);
+    } catch (err) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    const hasToken = await userRepository.hasRefreshToken(token);
+    if (!hasToken) {
+      throw new UnauthorizedError('Invalid refresh token');
+    }
+
+    const user = await userRepository.findById(payload.userId);
+    if (!user) {
+      throw new UnauthorizedError('User not found');
+    }
+
+    // Revoke old token and issue new pair (rotation)
+    await userRepository.removeRefreshToken(token);
+
+    const newAccessToken = generateAccessToken(user.id, user.role);
+    const newRefreshToken = generateRefreshToken(user.id, user.role);
+
+    await userRepository.addRefreshToken(newRefreshToken);
+
     return {
-      accessToken: 'temp-token',
-      refreshToken: 'temp-refresh-token',
+      accessToken: newAccessToken,
+      refreshToken: newRefreshToken,
     };
   }
 }

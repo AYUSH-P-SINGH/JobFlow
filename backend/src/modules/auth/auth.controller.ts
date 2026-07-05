@@ -23,11 +23,16 @@ export class AuthController {
     try {
       const { email, password } = req.body;
       const result = await AuthService.login(email, password);
+
+      logger.info(`Login Success: ${result.user.email} (ID: ${result.user.id})`);
+
       res.status(200).json({
         success: true,
         data: result,
       });
     } catch (error) {
+      const { email } = req.body;
+      logger.warn(`Login Failed: ${email || 'unknown'} - ${(error as Error).message}`);
       next(error);
     }
   }
