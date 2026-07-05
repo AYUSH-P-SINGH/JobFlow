@@ -2,10 +2,10 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
-import { logger } from './config/logger.js';
+import { logger } from './common/logger/logger.js';
 import routes from './routes/index.js';
-import { errorHandler } from './middlewares/errorHandler.js';
-import { notFound } from './middlewares/notFound.js';
+import { errorMiddleware } from './common/middleware/error.middleware.js';
+import { notFoundMiddleware } from './common/middleware/notFound.middleware.js';
 
 const app = express();
 
@@ -29,9 +29,9 @@ app.use(
 app.use(routes);
 
 // 404 Route handler
-app.use(notFound);
+app.use(notFoundMiddleware);
 
 // Global Error Handler
-app.use(errorHandler);
+app.use(errorMiddleware);
 
 export default app;

@@ -1,14 +1,27 @@
 import { Request, Response, NextFunction } from 'express';
-import { AppError } from '../utils/errors.js';
-import { logger } from '../config/logger.js';
-import { config } from '../config/env.js';
+import { ZodError } from 'zod';
+import { AppError } from '../errors/errors.js';
+import { logger } from '../logger/logger.js';
+import { config } from '../../config/env.js';
 
-export const errorHandler = (
+export const errorMiddleware = (
   err: Error,
   req: Request,
   res: Response,
   next: NextFunction
 ): Response | void => {
+  if (err instanceof ZodError) {
+    logger.warn(`Validation failure: [${req.method} ${req.path}] - ${JSON.stringify(err.issues)}`);
+    return res.status(400).json({
+      success: false,
+      message: 'Validation failed',
+      errors: err.issues.map((e) => ({
+        path: e.path.join('.'),
+        message: e.message,
+      })),
+    });
+  }
+
   if (err instanceof AppError) {
     logger.warn(`Operational error: [${req.method} ${req.path}] - ${err.message} (${err.statusCode})`);
     return res.status(err.statusCode).json({

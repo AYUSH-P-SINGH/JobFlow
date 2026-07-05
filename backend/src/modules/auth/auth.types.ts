@@ -15,5 +15,11 @@ export interface AuthResponse {
     email: string;
     role: UserRole;
   };
-  token: string;
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface JWTPayload {
+  userId: string;
+  role: UserRole;
 }

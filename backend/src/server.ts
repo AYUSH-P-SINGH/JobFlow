@@ -1,6 +1,6 @@
 import app from './app.js';
 import { config } from './config/env.js';
-import { logger } from './config/logger.js';
+import { logger } from './common/logger/logger.js';
 
 const server = app.listen(config.port, () => {
   logger.info(`Server is running in ${config.nodeEnv} mode on port ${config.port}`);
