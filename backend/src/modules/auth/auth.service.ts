@@ -4,25 +4,6 @@ import { AuthResponse } from './auth.types.js';
 import { generateAccessToken, generateRefreshToken, verifyRefreshToken } from '../../common/utils/jwt.js';
 import { ConflictError, BadRequestError, UnauthorizedError } from '../../common/errors/errors.js';
 
-// Initialize a default admin user for convenience testing
-const initAdminUser = async () => {
-  const adminEmail = 'admin@jobflow.com';
-  const existingAdmin = await userRepository.findByEmail(adminEmail);
-  if (!existingAdmin) {
-    const salt = await bcrypt.genSalt(10);
-    const passwordHash = await bcrypt.hash('admin123', salt);
-    await userRepository.saveDirectly({
-      id: 'admin-id-1234',
-      email: adminEmail,
-      passwordHash,
-      role: 'ADMIN',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-};
-initAdminUser().catch(err => console.error('Failed to initialize admin user', err));
-
 export class AuthService {
   static async register(email: string, password: string): Promise<AuthResponse> {
     if (!email || !password) {

@@ -4,7 +4,9 @@ export interface User {
   id: string;
   email: string;
   passwordHash: string;
-  role: UserRole;
+  role: string;
+  isVerified: boolean;
+  lastLogin: Date | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -13,7 +15,7 @@ export interface AuthResponse {
   user: {
     id: string;
     email: string;
-    role: UserRole;
+    role: string;
   };
   accessToken: string;
   refreshToken: string;
@@ -21,5 +23,5 @@ export interface AuthResponse {
 
 export interface JWTPayload {
   userId: string;
-  role: UserRole;
+  role: string;
 }

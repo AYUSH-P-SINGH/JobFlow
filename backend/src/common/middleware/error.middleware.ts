@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 import { AppError } from '../errors/errors.js';
 import { logger } from '../logger/logger.js';
 import { config } from '../../config/env.js';
@@ -10,6 +11,16 @@ export const errorMiddleware = (
   res: Response,
   next: NextFunction
 ): Response | void => {
+  if (err instanceof Prisma.PrismaClientKnownRequestError) {
+    if (err.code === 'P2002') {
+      logger.warn(`Database unique constraint violation: [${req.method} ${req.path}] - ${err.message}`);
+      return res.status(409).json({
+        success: false,
+        message: 'Email is already registered',
+      });
+    }
+  }
+
   if (err instanceof ZodError) {
     logger.warn(`Validation failure: [${req.method} ${req.path}] - ${JSON.stringify(err.issues)}`);
     return res.status(400).json({
