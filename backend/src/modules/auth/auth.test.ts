@@ -3,12 +3,17 @@ import assert from 'node:assert';
 import supertest from 'supertest';
 import app from '../../app.js';
 import { userRepository } from './auth.repository.js';
+import prisma from '../../prisma.js';
 
 test.describe('Auth Module Integration Tests', () => {
   const request = supertest(app);
 
   test.beforeEach(async () => {
     await userRepository.clear();
+  });
+
+  test.after(async () => {
+    await prisma.$disconnect();
   });
 
   test('POST /api/v1/auth/register - success', async () => {

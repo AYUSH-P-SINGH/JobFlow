@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import prisma from '../prisma.js';
 
 const router = Router();
 
@@ -12,11 +13,20 @@ router.get('/', (req: Request, res: Response) => {
 });
 
 // GET /health
-router.get('/health', (req: Request, res: Response) => {
-  res.status(200).json({
-    status: 'healthy',
-    uptime: process.uptime(),
-    timestamp: new Date().toISOString(),
+router.get('/health', async (req: Request, res: Response) => {
+  let dbStatus = 'healthy';
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch (error) {
+    dbStatus = 'unhealthy';
+  }
+
+  const isHealthy = dbStatus === 'healthy';
+
+  res.status(isHealthy ? 200 : 500).json({
+    status: isHealthy ? 'healthy' : 'unhealthy',
+    server: 'healthy',
+    database: dbStatus,
   });
 });
 
