@@ -17,6 +17,7 @@ model User {
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
+  jobs          Job[]
 
   @@map("users")
 }
@@ -29,4 +30,41 @@ model RefreshToken {
   createdAt DateTime @default(now())
 
   @@map("refresh_tokens")
+}
+
+enum JobStatus {
+  PENDING
+  QUEUED
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum JobPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model Job {
+  id          String      @id @default(uuid())
+  title       String
+  description String?
+  type        String
+  status      JobStatus   @default(PENDING)
+  priority    JobPriority @default(MEDIUM)
+  payload     Json
+  result      Json?
+  scheduledAt DateTime?
+  startedAt   DateTime?
+  completedAt DateTime?
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+  deletedAt   DateTime?
+  userId      String
+  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("jobs")
 }

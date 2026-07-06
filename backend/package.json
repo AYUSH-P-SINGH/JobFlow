@@ -7,7 +7,7 @@
     "dev": "ts-node-dev --respawn --esm src/server.ts",
     "build": "tsc",
     "start": "node dist/server.js",
-    "test": "node --test dist/modules/auth/auth.test.js"
+    "test": "node --test dist/modules/auth/auth.test.js dist/modules/jobs/job.test.js"
   },
   "keywords": [],
   "author": "",

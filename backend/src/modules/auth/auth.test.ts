@@ -5,7 +5,7 @@ import app from '../../app.js';
 import { userRepository } from './auth.repository.js';
 import prisma from '../../prisma.js';
 
-test.describe('Auth Module Integration Tests', () => {
+test.describe('Auth Module Integration Tests', { concurrency: 1 }, () => {
   const request = supertest(app);
 
   test.beforeEach(async () => {
