@@ -4,14 +4,13 @@ Distributed Job Queue & Workflow Platform (BullMQ + Temporal Alternative)
 
 JobFlow is a high-performance distributed task processing platform built to handle asynchronous workloads, retry policies, priority queues, and workers autoscaling. Users submit jobs, and worker nodes consume them from a distributed queue to process them independently.
 
-## Project Phase: Phase 3 — Database Integration Completed
+## Project Phase: Phase 6 — Worker Engine & Job Execution Completed
 
-In Phase 3, we integrated PostgreSQL database persistence into our Authentication Module using Prisma ORM, replacing the temporary in-memory user repository. Key achievements include:
-* Exposing a PostgreSQL container service configuration via `docker-compose.yml`.
-* Defining standard Prisma schemas for `User` and `RefreshToken` models with proper relations and cascades.
-* Implementing strict operational error mapping in the global middleware to format database constraint errors.
-* Introducing database connection checks during server boot and verifying database integration status through `/health` checks.
-* Implementing a programmatic database seeding workflow for default credentials setup.
+In Phase 6, we designed and implemented a standalone background worker process powered by BullMQ and Redis to execute jobs asynchronously. Key achievements include:
+* **Standalone Consumer**: A completely independent script entrypoint (`src/worker.ts`) executing as a separate process.
+* **Factory Handler Strategies**: Implemented strategy/factory pattern containing registered handlers (`EMAIL`, `REPORT`, `NOTIFICATION`, `IMAGE`) extending a common `BaseHandler`.
+* **State Machine Sync**: Enforced job state transitions (`RUNNING` ➡️ `COMPLETED` / `FAILED`) in PostgreSQL with automatic progress updates and retry policies.
+* **Lifecycles & Observability**: Integrated memory, uptime, and processed job health metrics, alongside graceful shutdown hooks (SIGINT, SIGTERM).
 
 ---
 
