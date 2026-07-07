@@ -14,7 +14,7 @@ export class JobController {
 
       // Parse schema to get properly typed inputs
       const parsed = await createJobSchema.parseAsync({ body: req.body });
-      const { title, description, type, priority, payload } = parsed.body;
+      const { title, description, type, priority, payload, scheduledAt } = parsed.body;
 
       const job = await JobService.createJob({
         title,
@@ -23,6 +23,7 @@ export class JobController {
         priority,
         payload,
         userId: currentUser.id,
+        scheduledAt,
       });
 
       logger.info(`Job Created: ID ${job.id}, Type ${job.type}, User ID ${currentUser.id}`);

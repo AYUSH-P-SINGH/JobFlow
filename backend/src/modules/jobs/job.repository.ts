@@ -33,6 +33,7 @@ export class PrismaJobRepository implements IJobRepository {
         priority: data.priority,
         payload: data.payload,
         userId: data.userId,
+        scheduledAt: data.scheduledAt,
       },
     });
     return job;

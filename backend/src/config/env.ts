@@ -9,6 +9,9 @@ export interface Config {
   nodeEnv: string;
   jwtSecret: string;
   jwtExpiresIn: string;
+  redisHost: string;
+  redisPort: number;
+  redisPassword: string;
 }
 
 export const config: Config = {
@@ -16,6 +19,9 @@ export const config: Config = {
   nodeEnv: process.env.NODE_ENV || 'development',
   jwtSecret: process.env.JWT_SECRET || 'super_secret_jwt_key_jobflow_development',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '1h',
+  redisHost: process.env.REDIS_HOST || 'localhost',
+  redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
+  redisPassword: process.env.REDIS_PASSWORD || '',
 };
 
 // Simple configuration validation

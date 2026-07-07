@@ -2,9 +2,18 @@ import app from './app.js';
 import { config } from './config/env.js';
 import { logger } from './common/logger/logger.js';
 import { connectDatabase, disconnectDatabase } from './database.js';
+import { redisConnection } from './config/redis.js';
+import { initJobQueue } from './queues/job.queue.js';
+import { initQueueEvents, closeQueueEvents } from './queues/queue.events.js';
+import { closeAllQueues } from './queues/queue.factory.js';
 
 // Connect to database prior to listening on the server port
 await connectDatabase();
+
+// Initialize BullMQ job queue and event listeners
+initJobQueue();
+initQueueEvents();
+logger.info('BullMQ queues and event listeners initialized');
 
 const server = app.listen(config.port, () => {
   logger.info(`Server is running in ${config.nodeEnv} mode on port ${config.port}`);
@@ -30,6 +39,18 @@ const gracefulShutdown = (signal: string) => {
   
   server.close(async () => {
     logger.info('HTTP server closed.');
+
+    // Close queue event listeners first, then queues, then Redis, then DB
+    await closeQueueEvents();
+    await closeAllQueues();
+
+    try {
+      await redisConnection.quit();
+      logger.info('Redis connection closed.');
+    } catch (error) {
+      logger.error('Error closing Redis connection:', error);
+    }
+
     await disconnectDatabase();
     process.exit(0);
   });

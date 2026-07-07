@@ -2,6 +2,7 @@ import { Router } from 'express';
 import authRoutes from '../modules/auth/auth.routes.js';
 import jobRoutes from '../modules/jobs/job.routes.js';
 import healthRoutes from './health.routes.js';
+import { createAdminRouter } from './admin.routes.js';
 
 const router = Router();
 
@@ -13,6 +14,9 @@ router.use('/api/v1/auth', authRoutes);
 
 // API v1 versioned job management routes
 router.use('/api/v1/jobs', jobRoutes);
+
+// Bull Board admin dashboard
+router.use('/admin/queues', createAdminRouter());
 
 // Expose /login and /register directly at root to satisfy basic milestone requirements
 router.use('/', authRoutes);

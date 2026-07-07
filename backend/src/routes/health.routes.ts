@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import prisma from '../prisma.js';
+import { redisConnection } from '../config/redis.js';
 
 const router = Router();
 
@@ -21,12 +22,23 @@ router.get('/health', async (req: Request, res: Response) => {
     dbStatus = 'unhealthy';
   }
 
-  const isHealthy = dbStatus === 'healthy';
+  let redisStatus = 'healthy';
+  try {
+    const pong = await redisConnection.ping();
+    if (pong !== 'PONG') {
+      redisStatus = 'unhealthy';
+    }
+  } catch (error) {
+    redisStatus = 'unhealthy';
+  }
+
+  const isHealthy = dbStatus === 'healthy' && redisStatus === 'healthy';
 
   res.status(isHealthy ? 200 : 500).json({
     status: isHealthy ? 'healthy' : 'unhealthy',
     server: 'healthy',
     database: dbStatus,
+    redis: redisStatus,
   });
 });
 

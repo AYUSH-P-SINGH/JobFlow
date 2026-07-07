@@ -8,6 +8,16 @@ export const createJobSchema = z.object({
     type: z.string().min(1, 'Type is required'),
     priority: z.nativeEnum(JobPriority).optional(),
     payload: z.record(z.string(), z.any()),
+    scheduledAt: z
+      .string()
+      .optional()
+      .refine((val) => !val || !isNaN(Date.parse(val)), {
+        message: 'Invalid scheduledAt date format',
+      })
+      .refine((val) => !val || new Date(val).getTime() > Date.now(), {
+        message: 'scheduledAt must be in the future',
+      })
+      .transform((val) => (val ? new Date(val) : undefined)),
   }),
 });
 

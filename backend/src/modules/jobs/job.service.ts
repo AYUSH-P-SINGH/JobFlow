@@ -1,10 +1,32 @@
 import { jobRepository } from './job.repository.js';
+import { EnqueueService } from './enqueue.service.js';
 import { CreateJobInput, UpdateJobInput, JobFilter, JobPagination, Job, JobStatus } from './job.types.js';
 import { ForbiddenError, NotFoundError, BadRequestError } from '../../common/errors/errors.js';
+import { logger } from '../../common/logger/logger.js';
 
 export class JobService {
+  /**
+   * Creates a job, persists it to PostgreSQL, enqueues it in BullMQ,
+   * and updates the status from PENDING → QUEUED.
+   */
   static async createJob(data: CreateJobInput): Promise<Job> {
-    return jobRepository.create(data);
+    // Step 1: Save to PostgreSQL (status defaults to PENDING)
+    const job = await jobRepository.create(data);
+
+    try {
+      // Step 2: Enqueue in BullMQ
+      await EnqueueService.enqueueJob(job);
+
+      // Step 3: Update status to QUEUED
+      const queuedJob = await jobRepository.updateStatus(job.id, JobStatus.QUEUED);
+
+      return queuedJob;
+    } catch (error) {
+      // If enqueueing fails, the job remains PENDING in the database.
+      // This is intentional — a retry mechanism or manual re-enqueue can handle it.
+      logger.error(`Failed to enqueue job ${job.id}: ${(error as Error).message}`);
+      return job;
+    }
   }
 
   static async getJobById(id: string, currentUser: { id: string; role: string }): Promise<Job> {
@@ -88,9 +110,9 @@ export class JobService {
       throw new ForbiddenError('You are not authorized to cancel this job');
     }
 
-    // Only allow cancellation if status is PENDING
-    if (job.status !== JobStatus.PENDING) {
-      throw new BadRequestError('Only PENDING jobs can be cancelled');
+    // Allow cancellation if status is PENDING or QUEUED
+    if (job.status !== JobStatus.PENDING && job.status !== JobStatus.QUEUED) {
+      throw new BadRequestError('Only PENDING or QUEUED jobs can be cancelled');
     }
 
     return jobRepository.updateStatus(id, JobStatus.CANCELLED);

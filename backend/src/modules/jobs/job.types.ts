@@ -10,6 +10,7 @@ export interface CreateJobInput {
   priority?: JobPriority;
   payload: Record<string, any>;
   userId: string;
+  scheduledAt?: Date | null;
 }
 
 export interface UpdateJobInput {

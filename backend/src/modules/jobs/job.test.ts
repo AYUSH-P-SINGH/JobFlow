@@ -1,11 +1,17 @@
-import test from 'node:test';
+import test, { mock } from 'node:test';
 import assert from 'node:assert';
 import supertest from 'supertest';
 import app from '../../app.js';
 import prisma from '../../prisma.js';
+import { EnqueueService } from './enqueue.service.js';
 
 test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
   const request = supertest(app);
+
+  // Mock EnqueueService to bypass Redis and immediately succeed during integration tests
+  mock.method(EnqueueService, 'enqueueJob', async (job: any) => {
+    return { id: job.id } as any;
+  });
 
   let tokenA: string;
   let userAId: string;
@@ -76,7 +82,7 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
     assert.ok(res.body.data.id);
     assert.strictEqual(res.body.data.title, 'Send Test Email');
     assert.strictEqual(res.body.data.type, 'EMAIL');
-    assert.strictEqual(res.body.data.status, 'PENDING');
+    assert.strictEqual(res.body.data.status, 'QUEUED');
     assert.strictEqual(res.body.data.priority, 'HIGH');
     assert.deepStrictEqual(res.body.data.payload, { to: 'hello@example.com', subject: 'Integration Test' });
   });
@@ -230,7 +236,7 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
       .patch(`/api/v1/jobs/${jobId}/cancel`)
       .set('Authorization', `Bearer ${tokenA}`);
     assert.strictEqual(res.status, 400);
-    assert.match(res.body.message, /Only PENDING jobs can be cancelled/);
+    assert.match(res.body.message, /Only PENDING or QUEUED jobs can be cancelled/);
   });
 
   // 5. Soft Delete tests
