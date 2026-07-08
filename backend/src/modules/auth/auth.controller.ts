@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from './auth.service.js';
 import { logger } from '../../common/logger/logger.js';
+import { AuditService } from '../monitoring/audit.service.js';
 
 export class AuthController {
   static async register(req: Request, res: Response, next: NextFunction): Promise<void> {
@@ -25,6 +26,12 @@ export class AuthController {
       const result = await AuthService.login(email, password);
 
       logger.info(`Login Success: ${result.user.email} (ID: ${result.user.id})`);
+
+      if (result.user.role === 'ADMIN') {
+        AuditService.log(result.user.id, 'Admin Login', 'User', { email: result.user.email }).catch((err) => {
+          logger.error(`[AuthController] Failed to write audit log for admin login: ${err.message}`);
+        });
+      }
 
       res.status(200).json({
         success: true,
