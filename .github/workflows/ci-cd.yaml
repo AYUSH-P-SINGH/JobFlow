@@ -9,6 +9,33 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: jobflow
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/jobflow?schema=public
+      REDIS_HOST: localhost
+      REDIS_PORT: 6379
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -29,6 +56,11 @@ jobs:
         run: |
           cd backend
           npx prisma generate
+
+      - name: Push Prisma Schema to database
+        run: |
+          cd backend
+          npx prisma db push
 
       - name: Build TypeScript Code
         run: |
