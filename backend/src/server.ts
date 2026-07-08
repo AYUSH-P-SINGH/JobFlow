@@ -3,6 +3,11 @@ import { config } from './config/env.js';
 import { logger } from './common/logger/logger.js';
 import { connectDatabase, disconnectDatabase } from './database.js';
 import { redisConnection } from './config/redis.js';
+import http from 'http';
+import { initSocketServer, closeSocketServer } from './socket/socket.server.js';
+import { NotificationService } from './modules/notifications/notification.service.js';
+import { AuditService } from './modules/monitoring/audit.service.js';
+import { MetricsService } from './modules/monitoring/metrics.service.js';
 import { initJobQueue } from './queues/job.queue.js';
 import { initQueueEvents, closeQueueEvents } from './queues/queue.events.js';
 import { closeAllQueues } from './queues/queue.factory.js';
@@ -10,12 +15,20 @@ import { closeAllQueues } from './queues/queue.factory.js';
 // Connect to database prior to listening on the server port
 await connectDatabase();
 
+// Initialize notifications, audit & metrics subscriptions
+NotificationService.initSubscriptions();
+AuditService.initSubscriptions();
+MetricsService.initSubscriptions();
+
 // Initialize BullMQ job queue and event listeners
 initJobQueue();
 initQueueEvents();
 logger.info('BullMQ queues and event listeners initialized');
 
-const server = app.listen(config.port, () => {
+const httpServer = http.createServer(app);
+initSocketServer(httpServer);
+
+const server = httpServer.listen(config.port, () => {
   logger.info(`Server is running in ${config.nodeEnv} mode on port ${config.port}`);
 });
 
@@ -40,7 +53,8 @@ const gracefulShutdown = (signal: string) => {
   server.close(async () => {
     logger.info('HTTP server closed.');
 
-    // Close queue event listeners first, then queues, then Redis, then DB
+    // Close Socket.IO first, then queue event listeners, then queues, then Redis, then DB
+    await closeSocketServer();
     await closeQueueEvents();
     await closeAllQueues();
 

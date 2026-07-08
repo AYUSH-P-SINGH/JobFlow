@@ -2,6 +2,8 @@ import { Router } from 'express';
 import authRoutes from '../modules/auth/auth.routes.js';
 import jobRoutes from '../modules/jobs/job.routes.js';
 import workflowRoutes from '../modules/workflow/workflow.routes.js';
+import notificationRoutes from '../modules/notifications/notification.routes.js';
+import monitoringRoutes from '../modules/monitoring/monitoring.routes.js';
 import healthRoutes from './health.routes.js';
 import { createAdminRouter } from './admin.routes.js';
 
@@ -18,6 +20,12 @@ router.use('/api/v1/jobs', jobRoutes);
 
 // API v1 versioned workflow management routes
 router.use('/api/v1/workflows', workflowRoutes);
+
+// API v1 versioned notifications routes
+router.use('/api/v1/notifications', notificationRoutes);
+
+// API monitoring, metrics, and timeline routes
+router.use('/', monitoringRoutes);
 
 // Bull Board admin dashboard
 router.use('/admin/queues', createAdminRouter());

@@ -6,6 +6,8 @@
     "baseUrl": "./",
     "paths": {
       "@prisma/client": ["./backend/node_modules/@prisma/client"],
+      ".prisma/client": ["./backend/node_modules/.prisma/client"],
+      ".prisma/client/*": ["./backend/node_modules/.prisma/client/*"],
       "*": ["./backend/node_modules/*", "node_modules/*"]
     }
   },
