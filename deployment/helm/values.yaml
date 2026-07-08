@@ -1,0 +1,74 @@
+# Default values for jobflow.
+
+namespace: jobflow
+
+image:
+  repository: jobflow-backend
+  pullPolicy: IfNotPresent
+  tag: "latest"
+
+api:
+  replicaCount: 3
+  port: 5000
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  hpa:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 8
+    targetCPU: 70
+
+worker:
+  replicaCount: 5
+  port: 5001
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+  hpa:
+    enabled: true
+    minReplicas: 5
+    maxReplicas: 10
+    targetCPU: 70
+
+postgres:
+  storage: 10Gi
+  user: postgres
+  password: postgrespassword
+  database: jobflow
+  resources:
+    limits:
+      cpu: 500m
+      memory: 512Mi
+    requests:
+      cpu: 100m
+      memory: 256Mi
+
+redis:
+  storage: 5Gi
+  resources:
+    limits:
+      cpu: 300m
+      memory: 256Mi
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+ingress:
+  enabled: true
+  host: api.jobflow.dev
+  tlsSecret: jobflow-tls-secret
+
+env:
+  nodeEnv: production
+  jwtExpiresIn: 1h
+  enableTracing: "true"
+  otelExporterEndpoint: "http://jaeger-service:4318/v1/traces"

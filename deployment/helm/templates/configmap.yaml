@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "jobflow.fullname" . }}-config
+  namespace: {{ .Values.namespace }}
+data:
+  PORT: "{{ .Values.api.port }}"
+  WORKER_PORT: "{{ .Values.worker.port }}"
+  NODE_ENV: "{{ .Values.env.nodeEnv }}"
+  REDIS_HOST: "{{ include "jobflow.fullname" . }}-redis-service"
+  REDIS_PORT: "6379"
+  JWT_EXPIRES_IN: "{{ .Values.env.jwtExpiresIn }}"
+  ENABLE_TRACING: "{{ .Values.env.enableTracing }}"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "{{ .Values.env.otelExporterEndpoint }}"

@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "jobflow.fullname" . }}-redis
+  namespace: {{ .Values.namespace }}
+spec:
+  serviceName: {{ include "jobflow.fullname" . }}-redis-service
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ include "jobflow.name" . }}-redis
+  template:
+    metadata:
+      labels:
+        app: {{ include "jobflow.name" . }}-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7-alpine
+          command: ["redis-server", "--appendonly", "yes"]
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            {{- toYaml .Values.redis.resources | nindent 12 }}
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: redis-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: {{ .Values.redis.storage }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "jobflow.fullname" . }}-redis-service
+  namespace: {{ .Values.namespace }}
+spec:
+  selector:
+    app: {{ include "jobflow.name" . }}-redis
+  ports:
+    - port: 6379
+      targetPort: 6379
+  type: ClusterIP
