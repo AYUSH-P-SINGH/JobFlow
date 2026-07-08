@@ -1,8 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
+import crypto from 'crypto';
 import { verifyAccessToken } from '../utils/jwt.js';
 import { userRepository } from '../../modules/auth/auth.repository.js';
 import { UnauthorizedError } from '../errors/errors.js';
 import { logger } from '../logger/logger.js';
+import prisma from '../../prisma.js';
 
 declare global {
   namespace Express {
@@ -11,7 +13,9 @@ declare global {
         id: string;
         email: string;
         role: string;
+        tenantId?: string;
       };
+      tenantId?: string;
     }
   }
 }
@@ -22,14 +26,44 @@ export const authMiddleware = async (
   next: NextFunction
 ): Promise<void> => {
   try {
+    // 1. Try API Key Authentication first
+    const apiKey = req.headers['x-api-key'];
+    if (apiKey && typeof apiKey === 'string') {
+      const hashedKey = crypto.createHash('sha256').update(apiKey).digest('hex');
+      const apiKeyRecord = await prisma.apiKey.findUnique({
+        where: { hashedKey },
+        include: { tenant: true },
+      });
+
+      if (!apiKeyRecord) {
+        logger.warn(`Unauthorized Access: Invalid API Key on ${req.method} ${req.path}`);
+        throw new UnauthorizedError('Invalid API Key');
+      }
+
+      if (apiKeyRecord.expiresAt && apiKeyRecord.expiresAt < new Date()) {
+        logger.warn(`Unauthorized Access: Expired API Key on ${req.method} ${req.path}`);
+        throw new UnauthorizedError('API Key has expired');
+      }
+
+      req.tenantId = apiKeyRecord.tenantId;
+      req.user = {
+        id: 'api-key-actor',
+        email: `api-key@${apiKeyRecord.tenantId}.local`,
+        role: 'ADMIN', // API key acts as tenant admin
+        tenantId: apiKeyRecord.tenantId,
+      };
+
+      return next();
+    }
+
+    // 2. Try JWT Bearer Authentication
     const authHeader = req.headers.authorization;
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       logger.warn(`Unauthorized Access: Missing or malformed Authorization header on ${req.method} ${req.path}`);
-      throw new UnauthorizedError('Access token is missing or invalid');
+      throw new UnauthorizedError('Access token or API key is missing or invalid');
     }
 
     const token = authHeader.split(' ')[1];
-
     let decoded: any;
     try {
       decoded = verifyAccessToken(token);
@@ -44,11 +78,14 @@ export const authMiddleware = async (
       throw new UnauthorizedError('User not found');
     }
 
+    const tenantId = user.tenantId || 'default-tenant-id';
     req.user = {
       id: user.id,
       email: user.email,
       role: user.role,
+      tenantId,
     };
+    req.tenantId = tenantId;
 
     next();
   } catch (error) {

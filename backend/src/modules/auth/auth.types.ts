@@ -9,6 +9,7 @@ export interface User {
   lastLogin: Date | null;
   createdAt: Date;
   updatedAt: Date;
+  tenantId?: string | null;
 }
 
 export interface AuthResponse {
