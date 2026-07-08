@@ -7,6 +7,38 @@ generator client {
   provider = "prisma-client-js"
 }
 
+model Tenant {
+  id            String             @id @default(uuid())
+  name          String
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  users         User[]
+  projects      Project[]
+  templates     WorkflowTemplate[]
+  executions    Workflow[]
+  apiKeys       ApiKey[]
+  jobs          Job[]
+  notifications Notification[]
+  schedules     WorkflowSchedule[]
+  webhooks      Webhook[]
+  auditLogs     AuditLog[]
+
+  @@map("tenants")
+}
+
+model Project {
+  id          String             @id @default(uuid())
+  name        String
+  tenantId    String             @map("tenant_id")
+  tenant      Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templates   WorkflowTemplate[]
+  executions  Workflow[]
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  @@map("projects")
+}
+
 model User {
   id            String         @id @default(uuid())
   email         String         @unique
@@ -20,6 +52,8 @@ model User {
   jobs          Job[]
   workflows     Workflow[]
   notifications Notification[]
+  tenantId      String?        @map("tenant_id")
+  tenant        Tenant?        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("users")
 }
@@ -68,6 +102,8 @@ model Job {
   userId       String
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   workflowStep WorkflowStep?
+  tenantId     String?       @map("tenant_id")
+  tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("jobs")
 }
@@ -80,18 +116,57 @@ enum WorkflowStatus {
   CANCELLED
 }
 
-model Workflow {
+model WorkflowTemplate {
   id          String            @id @default(uuid())
   name        String
-  status      WorkflowStatus    @default(PENDING)
-  currentStep String?           @map("current_step")
-  progress    Float             @default(0.0)
-  userId      String            @map("user_id")
-  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  description String?
+  tenantId    String            @map("tenant_id")
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId   String?           @map("project_id")
+  project     Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
   createdAt   DateTime          @default(now()) @map("created_at")
   updatedAt   DateTime          @updatedAt @map("updated_at")
-  steps       WorkflowStep[]
-  histories   WorkflowHistory[]
+  versions    WorkflowVersion[]
+  schedules   WorkflowSchedule[]
+  webhooks    Webhook[]
+
+  @@map("workflow_templates")
+}
+
+model WorkflowVersion {
+  id          String            @id @default(uuid())
+  templateId  String            @map("template_id")
+  template    WorkflowTemplate  @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  version     Int
+  dsl         Json              // Stores the JSON layout of steps
+  isActive    Boolean           @default(false) @map("is_active")
+  createdAt   DateTime          @default(now()) @map("created_at")
+  executions  Workflow[]
+
+  @@unique([templateId, version])
+  @@map("workflow_versions")
+}
+
+model Workflow {
+  id              String            @id @default(uuid())
+  name            String
+  status          WorkflowStatus    @default(PENDING)
+  currentStep     String?           @map("current_step")
+  progress        Float             @default(0.0)
+  userId          String            @map("user_id")
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  steps           WorkflowStep[]
+  histories       WorkflowHistory[]
+  tenantId        String?           @map("tenant_id")
+  tenant          Tenant?           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  projectId       String?           @map("project_id")
+  project         Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  versionId       String?           @map("version_id")
+  version         WorkflowVersion?  @relation(fields: [versionId], references: [id], onDelete: SetNull)
+  triggerType     String            @default("MANUAL") @map("trigger_type")
+  triggerMetadata Json?             @map("trigger_metadata")
 
   @@map("workflows")
 }
@@ -128,6 +203,50 @@ model WorkflowHistory {
   @@map("workflow_histories")
 }
 
+model ApiKey {
+  id          String    @id @default(uuid())
+  name        String
+  hashedKey   String    @unique @map("hashed_key")
+  tenantId    String    @map("tenant_id")
+  tenant      Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  expiresAt   DateTime? @map("expires_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  @@map("api_keys")
+}
+
+model WorkflowSchedule {
+  id          String           @id @default(uuid())
+  name        String
+  cron        String
+  isActive    Boolean          @default(true) @map("is_active")
+  templateId  String           @map("template_id")
+  template    WorkflowTemplate @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  tenantId    String           @map("tenant_id")
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@map("workflow_schedules")
+}
+
+model Webhook {
+  id          String            @id @default(uuid())
+  name        String
+  url         String?
+  events      Json?
+  secret      String?
+  type        String            @default("OUTBOUND")
+  tenantId    String            @map("tenant_id")
+  tenant      Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  templateId  String?           @map("template_id")
+  template    WorkflowTemplate? @relation(fields: [templateId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+
+  @@map("webhooks")
+}
+
 enum NotificationType {
   SUCCESS
   WARNING
@@ -145,6 +264,8 @@ model Notification {
   read      Boolean          @default(false)
   createdAt DateTime         @default(now()) @map("created_at")
   updatedAt DateTime         @updatedAt @map("updated_at")
+  tenantId  String?          @map("tenant_id")
+  tenant    Tenant?          @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("notifications")
 }
@@ -156,7 +277,8 @@ model AuditLog {
   resource  String
   metadata  Json?
   createdAt DateTime @default(now()) @map("created_at")
+  tenantId  String?  @map("tenant_id")
+  tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
 }
-
