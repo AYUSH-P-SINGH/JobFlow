@@ -5,6 +5,7 @@ import { WorkflowStatus, WorkflowStep, Workflow } from '../workflow.types.js';
 import { WORKFLOW_EVENTS } from '../workflow.constants.js';
 import { logger } from '../../../common/logger/logger.js';
 import prisma from '../../../prisma.js';
+import { EventPublisher } from '../../../events/event.publisher.js';
 
 export class WorkflowEngine {
   /**
@@ -48,7 +49,8 @@ export class WorkflowEngine {
     if (readySteps.length > 0) {
       // If the workflow is PENDING, transition it to RUNNING
       if (workflow.status === WorkflowStatus.PENDING) {
-        await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING);
+        const updatedWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING);
+        EventPublisher.publishWorkflowEvent('workflow.started', updatedWf);
         await workflowRepository.addHistory(
           workflowId,
           WORKFLOW_EVENTS.STARTED,
@@ -111,7 +113,8 @@ export class WorkflowEngine {
         try {
           await WorkflowScheduler.scheduleStep(workflow, step);
           // Update workflow currentStep with the scheduled step name/id
-          await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING, step.stepId);
+          const updatedWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING, step.stepId);
+          EventPublisher.publishWorkflowEvent('workflow.updated', updatedWf);
         } catch (error) {
           logger.error(
             `[WorkflowEngine] Failed to schedule step "${step.stepId}" of Workflow ${workflowId}: ${(error as Error).message}`
@@ -144,7 +147,8 @@ export class WorkflowEngine {
 
     // Update progress
     const progress = Math.round((finishedSteps.length / totalSteps) * 100);
-    await workflowRepository.updateProgress(workflowId, progress);
+    const updatedWf = await workflowRepository.updateProgress(workflowId, progress);
+    EventPublisher.publishWorkflowEvent('workflow.updated', updatedWf);
 
     // 3. Check for workflow completion
     if (finishedSteps.length === totalSteps) {
@@ -152,7 +156,8 @@ export class WorkflowEngine {
 
       if (hasFailedSteps) {
         // Transition workflow to FAILED
-        await workflowRepository.updateStatus(workflowId, WorkflowStatus.FAILED, null);
+        const finalWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.FAILED, null);
+        EventPublisher.publishWorkflowEvent('workflow.failed', finalWf, new Error('Workflow failed due to step failures.'));
         await workflowRepository.addHistory(
           workflowId,
           WORKFLOW_EVENTS.FAILED,
@@ -160,7 +165,8 @@ export class WorkflowEngine {
         );
       } else {
         // Transition workflow to COMPLETED
-        await workflowRepository.updateStatus(workflowId, WorkflowStatus.COMPLETED, null);
+        const finalWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.COMPLETED, null);
+        EventPublisher.publishWorkflowEvent('workflow.completed', finalWf);
         await workflowRepository.addHistory(
           workflowId,
           WORKFLOW_EVENTS.COMPLETED,

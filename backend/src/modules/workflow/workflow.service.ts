@@ -14,6 +14,7 @@ import { ForbiddenError, NotFoundError, BadRequestError } from '../../common/err
 import { logger } from '../../common/logger/logger.js';
 import { getJobQueue } from '../../queues/job.queue.js';
 import prisma from '../../prisma.js';
+import { EventPublisher } from '../../events/event.publisher.js';
 
 export class WorkflowService {
   /**
@@ -149,7 +150,8 @@ export class WorkflowService {
     // Calculate final progress
     const finishedCount = workflow.steps.length; // All steps cancelled or finished
     const progress = workflow.steps.length > 0 ? 100 : 0;
-    await workflowRepository.updateProgress(id, progress);
+    const finalWf = await workflowRepository.updateProgress(id, progress);
+    EventPublisher.publishWorkflowEvent('workflow.cancelled', finalWf);
 
     return updated;
   }
@@ -195,6 +197,7 @@ export class WorkflowService {
 
     // Transition workflow back to PENDING and trigger evaluation
     const updatedWorkflow = await workflowRepository.updateStatus(id, WorkflowStatus.PENDING, null);
+    EventPublisher.publishWorkflowEvent('workflow.updated', updatedWorkflow);
 
     await workflowRepository.addHistory(
       id,
