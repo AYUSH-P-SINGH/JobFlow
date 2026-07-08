@@ -1,0 +1,17 @@
+{
+  "name": "jobflow-cli",
+  "version": "1.0.0",
+  "description": "JobFlow command-line interface",
+  "main": "dist/index.js",
+  "bin": {
+    "jobflow": "./dist/index.js"
+  },
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
