@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: jobflow-ingress
+  namespace: jobflow
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+spec:
+  tls:
+    - hosts:
+        - api.jobflow.dev
+      secretName: jobflow-tls-secret
+  rules:
+    - host: api.jobflow.dev
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-service
+                port:
+                  number: 5000
