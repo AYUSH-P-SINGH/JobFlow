@@ -3,6 +3,7 @@ import { getJobQueue } from '../../queues/job.queue.js';
 import { PriorityMap } from '../../queues/queue.constants.js';
 import { logger } from '../../common/logger/logger.js';
 import type { Job } from './job.types.js';
+import { getCorrelationId } from '../../common/tracing/context.js';
 
 /**
  * Minimal payload pushed to the BullMQ queue.
@@ -13,6 +14,7 @@ export interface JobQueuePayload {
   userId: string;
   type: string;
   priority: string;
+  correlationId?: string;
 }
 
 export class EnqueueService {
@@ -32,6 +34,11 @@ export class EnqueueService {
       type: job.type,
       priority: job.priority,
     };
+
+    const correlationId = getCorrelationId();
+    if (correlationId) {
+      payload.correlationId = correlationId;
+    }
 
     // Calculate delay for scheduled jobs
     let delay: number | undefined;

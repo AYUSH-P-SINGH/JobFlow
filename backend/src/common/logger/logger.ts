@@ -1,5 +1,6 @@
 import winston from 'winston';
 import { config } from '../../config/env.js';
+import { getCorrelationId } from '../tracing/context.js';
 
 const levels = {
   error: 0,
@@ -22,9 +23,11 @@ winston.addColors(colors);
 const logFormat = winston.format.combine(
   winston.format.timestamp({ format: 'YYYY-MM-DD HH:mm:ss:ms' }),
   winston.format.colorize({ all: true }),
-  winston.format.printf(
-    (info) => `[${info.timestamp}] [${info.level}]: ${info.message}`
-  )
+  winston.format.printf((info) => {
+    const correlationId = getCorrelationId();
+    const cidPrefix = correlationId ? ` [CID: ${correlationId}]` : '';
+    return `[${info.timestamp}] [${info.level}]${cidPrefix}: ${info.message}`;
+  })
 );
 
 const transports = [

@@ -6,8 +6,12 @@ import { logger } from './common/logger/logger.js';
 import routes from './routes/index.js';
 import { errorMiddleware } from './common/middleware/error.middleware.js';
 import { notFoundMiddleware } from './common/middleware/notFound.middleware.js';
+import { tracingMiddleware } from './common/middleware/tracing.middleware.js';
 
 const app = express();
+
+// Trace all incoming requests first
+app.use(tracingMiddleware);
 
 // Standard middlewares
 app.use(helmet());
