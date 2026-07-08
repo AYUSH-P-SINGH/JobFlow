@@ -28,4 +28,11 @@ router.get('/api/v1/monitoring/logs', adminOnly, MetricsController.logs);
 // Timeline is authenticated but checked at workflow level inside the service
 router.get('/api/v1/monitoring/workflows/:id/timeline', MetricsController.timeline);
 
+import { AnalyticsController } from './analytics.controller.js';
+router.get('/api/v1/monitoring/analytics', AnalyticsController.getTenantAnalytics);
+
+import { DocsController } from './docs.controller.js';
+router.get('/api/v1/docs/openapi.json', DocsController.getOpenApiJson);
+router.get('/docs', DocsController.renderSwaggerUi);
+
 export default router;
