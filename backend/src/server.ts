@@ -1,3 +1,4 @@
+import './common/tracing/otel.js';
 import app from './app.js';
 import { config } from './config/env.js';
 import { logger } from './common/logger/logger.js';
