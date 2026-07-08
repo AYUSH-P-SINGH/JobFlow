@@ -19,6 +19,7 @@ model User {
   refreshTokens RefreshToken[]
   jobs          Job[]
   workflows     Workflow[]
+  notifications Notification[]
 
   @@map("users")
 }
@@ -126,3 +127,36 @@ model WorkflowHistory {
 
   @@map("workflow_histories")
 }
+
+enum NotificationType {
+  SUCCESS
+  WARNING
+  ERROR
+  INFO
+}
+
+model Notification {
+  id        String           @id @default(uuid())
+  userId    String           @map("user_id")
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      NotificationType
+  title     String
+  message   String
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+
+  @@map("notifications")
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  actor     String
+  action    String
+  resource  String
+  metadata  Json?
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("audit_logs")
+}
+
