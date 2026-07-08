@@ -21,10 +21,18 @@ NotificationService.initSubscriptions();
 AuditService.initSubscriptions();
 MetricsService.initSubscriptions();
 
+// Initialize outbound webhook dispatcher subscriptions
+const { WebhookService } = await import('./modules/webhooks/webhook.service.js');
+WebhookService.initDispatcher();
+
 // Initialize BullMQ job queue and event listeners
 initJobQueue();
 initQueueEvents();
 logger.info('BullMQ queues and event listeners initialized');
+
+// Synchronize database cron schedules to BullMQ
+const { CronService } = await import('./modules/scheduler/cron.service.js');
+await CronService.initSchedules();
 
 const httpServer = http.createServer(app);
 initSocketServer(httpServer);

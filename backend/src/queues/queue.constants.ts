@@ -8,6 +8,7 @@ export enum QueueNames {
   JOB_QUEUE = 'job-processing',
   EMAIL_QUEUE = 'email',
   WORKFLOW_QUEUE = 'workflow',
+  SCHEDULER_QUEUE = 'scheduler',
 }
 
 /**

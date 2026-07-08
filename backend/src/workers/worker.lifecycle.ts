@@ -1,21 +1,29 @@
 import { createJobWorker, closeJobWorker } from './worker.factory.js';
+import { startCronWorker, stopCronWorker } from '../modules/scheduler/cron.runner.js';
 import prisma from '../prisma.js';
 import { redisConnection } from '../config/redis.js';
 import { logger } from '../common/logger/logger.js';
 
 export async function initializeWorker(): Promise<void> {
   createJobWorker();
+  startCronWorker();
   logger.info('Worker lifecycle initialized');
 }
 
 export async function shutdownWorker(): Promise<void> {
   logger.info('Starting worker graceful shutdown sequence...');
 
-  // 1. Close BullMQ Worker
+  // 1. Close BullMQ Workers
   try {
     await closeJobWorker();
   } catch (error) {
     logger.error('Error closing BullMQ worker:', error);
+  }
+
+  try {
+    await stopCronWorker();
+  } catch (error) {
+    logger.error('Error closing Cron scheduler worker:', error);
   }
 
   // 2. Disconnect database client

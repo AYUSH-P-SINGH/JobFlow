@@ -39,3 +39,6 @@ HandlerFactory.register('EMAIL', new EmailHandler());
 HandlerFactory.register('REPORT', new ReportHandler());
 HandlerFactory.register('NOTIFICATION', new NotificationHandler());
 HandlerFactory.register('IMAGE', new ImageHandler());
+
+// Load and register custom plugins dynamically
+await import('../../modules/plugins/plugin.manager.js');
