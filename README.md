@@ -1,40 +1,38 @@
 # JobFlow 🚀
 
-Distributed Job Queue & Workflow Platform (BullMQ + Temporal Alternative)
+Distributed Workflow Orchestration & Job Queue Platform (BullMQ + Redis + PostgreSQL)
 
-JobFlow is a high-performance distributed task processing platform built to handle asynchronous workloads, retry policies, priority queues, and workers autoscaling. Users submit jobs, and worker nodes consume them from a distributed queue to process them independently.
+JobFlow is a high-performance distributed task processing and workflow orchestration platform. It is designed to coordinate complex multi-step jobs represented as Directed Acyclic Graphs (DAGs) with sequential, parallel, and conditional execution paths, complete with persistent state logs, retry backoff policies, distributed worker scaling, and real-time observability.
 
-## Project Phase: Phase 6 — Worker Engine & Job Execution Completed
+---
 
-In Phase 6, we designed and implemented a standalone background worker process powered by BullMQ and Redis to execute jobs asynchronously. Key achievements include:
-* **Standalone Consumer**: A completely independent script entrypoint (`src/worker.ts`) executing as a separate process.
-* **Factory Handler Strategies**: Implemented strategy/factory pattern containing registered handlers (`EMAIL`, `REPORT`, `NOTIFICATION`, `IMAGE`) extending a common `BaseHandler`.
-* **State Machine Sync**: Enforced job state transitions (`RUNNING` ➡️ `COMPLETED` / `FAILED`) in PostgreSQL with automatic progress updates and retry policies.
-* **Lifecycles & Observability**: Integrated memory, uptime, and processed job health metrics, alongside graceful shutdown hooks (SIGINT, SIGTERM).
+## 🗺️ Project State: Phase 8 Completed
+
+JobFlow has evolved into a production-grade distributed orchestration platform:
+* **Workflow Engine & Orchestrator (Phase 7)**: Executes DAG-based workflows, detects cycles, processes step dependencies, evaluates branch conditions (e.g. `steps.<stepId>.status === 'COMPLETED'`), and handles cascade cancellation of downstream execution paths. Includes templates for Lead Nurturing, Image Optimization, and Notification campaigns.
+* **Real-Time Gateway (Phase 8)**: Socket.IO server utilizing JWT authentication. Separates connections into personal user rooms (`room:user:<id>`), detailed workflow timeline rooms (`room:workflow:<id>`), and system operator rooms (`room:admins`). Automatically replays cached events upon reconnection and throttles progress updates to 200ms.
+* **Persistent Notifications (Phase 8)**: Database-backed system alerts categorizing failures, retries, and completions. Exposes list, mark read, and delete endpoints.
+* **System Audit Logging (Phase 8)**: Tracks administrative actions (e.g. creations, retries, cancellations, logins, worker check-ins) across users and resources. Exposes operator queries.
+* **Chronological Timelines (Phase 8)**: Aggregates workflow history logs into sequence timelines.
+* **Prometheus Metrics (Phase 8)**: Exposes a standard scrapable `/metrics` endpoint with queue size gauges, total completed/failed counters, and worker utilization gauges.
+* **Distributed Tracing (Phase 8)**: Injects and extracts `X-Correlation-ID` headers using `AsyncLocalStorage` to trace requests across the logging layer, queue payloads, and worker processing execution contexts.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Phase 3 Core Tech Stack
-* **Runtime:** Node.js (v26.3.0)
+* **Runtime:** Node.js (v20+)
 * **Framework:** Express.js (v4)
 * **Language:** TypeScript
-* **Database:** PostgreSQL (v16)
+* **Database:** PostgreSQL (v15+)
 * **ORM:** Prisma ORM (v5)
-* **Logger:** Winston (structured logs / JSON formatter)
-* **HTTP Log middleware:** Morgan
-* **Security:** Helmet & CORS
-* **Environment Configuration:** dotenv
-* **Validation Library:** Zod
-* **Authentication:** JWT (jsonwebtoken) & bcryptjs
+* **Queue Engine:** BullMQ & Redis
+* **WebSockets:** Socket.IO
+* **Metrics:** prom-client (Prometheus Exporter)
+* **Logger:** Winston (Prepend Correlation IDs)
+* **API Validation:** Zod
+* **Authentication:** JWT & Bcrypt
 * **Testing:** Native Node.js Test Runner & Supertest
-
-### Planned Future Stack
-* **Queue System:** BullMQ (powered by Redis)
-* **Deployment:** Docker & Kubernetes
-* **Monitoring:** Prometheus & Grafana
-* **CI/CD:** GitHub Actions
 
 ---
 
@@ -43,47 +41,46 @@ In Phase 6, we designed and implemented a standalone background worker process p
 ```text
 jobflow/
 ├── backend/
+│   ├── prisma/
+│   │   ├── schema.prisma    # Database definitions (User, Job, Workflow, Notifications, AuditLog)
+│   │   └── migrations/      # SQL migration files
 │   ├── src/
-│   │   ├── config/          # Global environment configurations
-│   │   ├── common/          # Shared layout across multiple modules
-│   │   │   ├── errors/      # Standard operational HTTP errors
-│   │   │   ├── logger/      # Winston configuration
-│   │   │   ├── middleware/  # Express middlewares (auth, error, validation, notFound)
-│   │   │   └── utils/       # Utility helpers (e.g. jwt token helpers)
-│   │   ├── modules/         # Business domain modules
-│   │   │   └── auth/        # Self-contained authentication feature module
-│   │   │       ├── auth.controller.ts   # Controllers for auth endpoints
-│   │   │       ├── auth.routes.ts       # Route endpoints definition
-│   │   │       ├── auth.service.ts      # Core auth business logic
-│   │   │       ├── auth.repository.ts   # In-memory repository (user storage & refresh tokens)
-│   │   │       ├── auth.types.ts        # Auth-specific types & user interfaces
-│   │   │       ├── auth.validation.ts   # Zod request schemas
-│   │   │       └── auth.test.ts         # Test suite for auth endpoints
+│   │   ├── config/          # Environment configurations (Redis, environment variables)
+│   │   ├── common/          # Shared operational layers
+│   │   │   ├── errors/      # Standard HTTP client/server errors
+│   │   │   ├── logger/      # Winston logger configuration
+│   │   │   ├── middleware/  # Express middlewares (auth, validation, tracing)
+│   │   │   └── tracing/     # AsyncLocalStorage distributed trace context
+│   │   ├── events/          # In-process type-safe Event Bus
+│   │   ├── socket/          # WebSocket (Socket.IO) server & gateway
+│   │   ├── queues/          # BullMQ queue definitions & handlers
+│   │   ├── workers/         # Base worker process & lifecycle managers
+│   │   ├── modules/         # Domain-driven features
+│   │   │   ├── auth/        # JWT Authentication & authorization
+│   │   │   ├── jobs/        # CRUD Job management & execution services
+│   │   │   ├── workflow/    # DAG engine, dependency resolver, scheduler & templates
+│   │   │   └── monitoring/  # Metrics, audit logs, timelines, & Prometheus services
 │   │   ├── app.ts           # Configured Express application instance
-│   │   └── server.ts        # HTTP listener entrypoint & graceful shutdown scripts
-│   ├── .env.example         # Template environment variables
-│   ├── .env                 # Active environment configuration parameters
-│   ├── .gitignore           # Git ignore patterns for backend
-│   ├── package.json         # Dependencies & scripts manager
+│   │   └── server.ts        # HTTP listener, Socket.IO & Graceful Shutdown script
+│   │   └── worker.ts        # Independent worker background process entrypoint
+│   ├── package.json         # Build scripts & dependencies manager
 │   ├── tsconfig.json        # TypeScript compiler configurations
 │   └── README.md            # Backend instructions
-├── frontend/                # React dashboard application (Upcoming)
-├── docs/                    # Architecture diagrams & guides
-├── docker/                  # Dockerfiles & docker-compose manifests
-├── LICENSE                  # License agreement file (MIT)
-└── README.md                # This global documentation file
+├── docs/                    # Architecture diagrams & guides (observability.md, workflow.md)
+├── docker-compose.yml       # Dev Redis & PostgreSQL containers setup
+└── README.md                # Global documentation file (This file)
 ```
 
 ---
 
-## 🚀 How to Run the App Locally
+## 🚀 How to Run JobFlow Locally
 
 ### Prerequisites
-Make sure you have [Node.js](https://nodejs.org/) installed (v18 or higher recommended).
+Make sure you have [Node.js](https://nodejs.org/), [Docker Desktop](https://www.docker.com/), and [Git](https://git-scm.com/) installed.
 
 ### Installation
 
-1. Clone or navigate to the repository workspace:
+1. Navigate to the repository workspace:
    ```bash
    cd JOBFLOW
    ```
@@ -93,113 +90,100 @@ Make sure you have [Node.js](https://nodejs.org/) installed (v18 or higher recom
    cd backend
    ```
 
-3. Install dependencies:
+3. Install dependencies (installs development socket client, Prometheus tools, BullMQ, and core libraries):
    ```bash
    npm install
    ```
 
-4. Start PostgreSQL database container:
+4. Spin up the localized PostgreSQL and Redis containers:
    ```bash
-   # Make sure Docker is running on your system, then:
    docker compose up -d
    ```
 
-5. Run database migrations to set up tables:
+5. Push the database schema configurations and generate Prisma clients:
    ```bash
-   npx prisma migrate dev --name init
+   npx prisma db push
    ```
 
-6. Run the database seed script to create the default admin user:
+6. Seed default users and templates:
    ```bash
    npx prisma db seed
    ```
 
-### Running in Development Mode
-Start the development server with live reload enabled:
+---
+
+### Running the Platform
+
+#### Running in Development Mode
+Starts the Express API Web Server with live-reloads:
 ```bash
 npm run dev
 ```
 
-### Building for Production
-Compile the TypeScript code to Javascript inside `dist/`:
+Starts the Background Worker Consumer process with live-reloads:
+```bash
+npm run worker:dev
+```
+
+#### Running in Production Mode
+Compile the TypeScript files to JS:
 ```bash
 npm run build
 ```
 
-### Running in Production Mode
-Start the compiled Javascript bundle:
+Run the compiled web server:
 ```bash
 npm run start
 ```
 
+Run the compiled worker process:
+```bash
+npm run worker
+```
+
+---
+
 ### Running the Test Suite
-Ensure the PostgreSQL database is running, then run the integration and unit tests:
+JobFlow includes a comprehensive integration test suite verifying authentication, job queues, workers retry handling, DAG workflow scheduling, Socket.IO gateway rooms, trace propagation, notifications, audit logs, and metrics scraping:
 ```bash
 npm run test
 ```
 
 ---
 
-## 🛣️ API Documentation (Phase 2 Endpoints)
+## 🛣️ API Endpoints Reference
 
-Every API success response follows the standard format:
-```json
-{
-  "success": true,
-  "data": {}
-}
-```
-And error responses follow:
-```json
-{
-  "success": false,
-  "message": "Error details here"
-}
-```
+### 🔐 Authentication & Session
+* `POST /api/v1/auth/register` — Create a user.
+* `POST /api/v1/auth/login` — Returns access & refresh token.
+* `POST /api/v1/auth/refresh` — Rotation of session keys.
+* `GET /api/v1/auth/me` — Fetches current authenticated payload.
 
-| Method | Endpoint | Description | Headers | Request Body |
-|:---|:---|:---|:---|:---|
-| **GET** | `/` | Welcomes user & shows status OK | - | - |
-| **GET** | `/health` | Kubernetes-ready system status & uptime | - | - |
-| **POST** | `/api/v1/auth/register` | Register a new user | Content-Type: application/json | `{"email": "...", "password": "..."}` |
-| **POST** | `/api/v1/auth/login` | Authenticate user & return JWT access + refresh tokens | Content-Type: application/json | `{"email": "...", "password": "..."}` |
-| **POST** | `/api/v1/auth/refresh` | Rotate and issue a new set of tokens | Content-Type: application/json | `{"refreshToken": "..."}` |
-| **GET** | `/api/v1/auth/me` | Fetch user profile payload of the current session | Authorization: Bearer `<accessToken>` | - |
+### 💼 Job Operations
+* `POST /api/v1/jobs` — Enqueue a new stand-alone job.
+* `GET /api/v1/jobs` — Lists user-enqueued jobs.
+* `GET /api/v1/jobs/:id` — Retrives details and runtime progress percentage.
+* `POST /api/v1/jobs/:id/cancel` — Cancels a running/queued job.
 
-### Testing with Curl / API Clients
+### ⛓️ Workflow Orchestration
+* `POST /api/v1/workflows` — Instantiates a new workflow (sequential or parallel execution graph).
+* `GET /api/v1/workflows` — Lists user workflows.
+* `GET /api/v1/workflows/:id` — Retrieves current workflow details.
+* `POST /api/v1/workflows/:id/cancel` — Stops execution and cancels downstream paths.
+* `POST /api/v1/workflows/:id/retry` — Resumes execution of failed steps.
+* `GET /api/v1/workflows/templates` — Lists predefined DAG campaigns.
+* `GET /api/v1/workflows/metrics` — Aggregate workflow performance (durations, success rates).
 
-#### Register
-```bash
-curl -X POST http://localhost:5000/api/v1/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"mypassword123"}'
-```
+### 🔔 Live Notifications
+* `GET /api/v1/notifications` — Paginated user alerts.
+* `PATCH /api/v1/notifications/:id/read` — Marks notification as read.
+* `DELETE /api/v1/notifications/:id` — Removes notification.
 
-#### Login
-```bash
-curl -X POST http://localhost:5000/api/v1/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{"email":"test@example.com","password":"mypassword123"}'
-```
-
-#### Get Current Profile
-```bash
-curl -X GET http://localhost:5000/api/v1/auth/me \
-  -H "Authorization: Bearer <accessToken>"
-```
-
-#### Refresh Access Token
-```bash
-curl -X POST http://localhost:5000/api/v1/auth/refresh \
-  -H "Content-Type: application/json" \
-  -d '{"refreshToken":"<refreshToken>"}'
-```
-
----
-
-## 🌟 Future Roadmap
-
-- **Phase 3 — Database Integration:** Integrate Prisma with PostgreSQL database for persistent storage, replacing the current in-memory repositories.
-- **Phase 4 — Queue System Setup:** Integrate BullMQ and Redis backend. Add first workers to handle asynchronous jobs (Email, Image resize).
-- **Phase 5 — Dashboards & Live Monitoring:** Build a React admin dashboard. Add WebSocket/Socket.io event integrations.
-- **Phase 6 — Metrics & Kubernetes Orchestration:** Setup Prometheus metrics exporter and containerize via Docker/K8s.
+### 📊 Observability & System Exporters
+* `GET /metrics` — Exposes Prometheus format metrics scraper registry.
+* `GET /api/v1/monitoring/dashboard` — General summary statistics (restricted to `ADMIN`).
+* `GET /api/v1/monitoring/queues` — Retrieves active/waiting counts in BullMQ (restricted to `ADMIN`).
+* `GET /api/v1/monitoring/workflows` — Overall platform execution metrics (restricted to `ADMIN`).
+* `GET /api/v1/monitoring/workers` — Worker check-in status, uptime, CPU and memory usage (restricted to `ADMIN`).
+* `GET /api/v1/monitoring/logs` — Query security and operations audit logs (restricted to `ADMIN`).
+* `GET /api/v1/monitoring/workflows/:id/timeline` — Sequential execution updates for steps.
