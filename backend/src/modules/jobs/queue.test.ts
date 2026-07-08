@@ -107,20 +107,16 @@ test.describe('Queue Architecture & Setup Tests', () => {
     assert.ok(addedOpts.delay > 500000 && addedOpts.delay <= 600000);
   });
 
-  test('GET /health checks Redis and database', async () => {
+  test('GET /ready checks Redis and database', async () => {
     // Mock redisConnection.ping to simulate connection success during tests
     redisConnection.ping = async () => 'PONG';
 
     const request = supertest(app);
-    const res = await request.get('/health');
+    const res = await request.get('/ready');
     assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.body.status, 'healthy');
-    assert.strictEqual(res.body.server, 'healthy');
+    assert.strictEqual(res.body.status, 'ready');
     assert.strictEqual(res.body.database, 'healthy');
-    // Since we're in test env with lazyConnect and offline redis,
-    // the health check might report redis as unhealthy.
-    // Let's assert that the health check returned the redis status key.
-    assert.ok(res.body.redis);
+    assert.strictEqual(res.body.redis, 'healthy');
   });
 
   test('GET /admin/queues is available', async () => {
