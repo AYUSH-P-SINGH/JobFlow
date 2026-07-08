@@ -1,0 +1,14 @@
+{
+  "name": "@jobflow/sdk-js",
+  "version": "1.0.0",
+  "description": "JobFlow Enterprise JavaScript SDK",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "build": "tsc"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
