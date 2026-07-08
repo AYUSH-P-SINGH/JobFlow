@@ -18,6 +18,7 @@ model User {
   updatedAt     DateTime       @updatedAt
   refreshTokens RefreshToken[]
   jobs          Job[]
+  workflows     Workflow[]
 
   @@map("users")
 }
@@ -49,22 +50,79 @@ enum JobPriority {
 }
 
 model Job {
-  id          String      @id @default(uuid())
-  title       String
-  description String?
-  type        String
-  status      JobStatus   @default(PENDING)
-  priority    JobPriority @default(MEDIUM)
-  payload     Json
-  result      Json?
-  scheduledAt DateTime?
-  startedAt   DateTime?
-  completedAt DateTime?
-  createdAt   DateTime    @default(now())
-  updatedAt   DateTime    @updatedAt
-  deletedAt   DateTime?
-  userId      String
-  user        User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id           String        @id @default(uuid())
+  title        String
+  description  String?
+  type         String
+  status       JobStatus     @default(PENDING)
+  priority     JobPriority   @default(MEDIUM)
+  payload      Json
+  result       Json?
+  scheduledAt  DateTime?
+  startedAt    DateTime?
+  completedAt  DateTime?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workflowStep WorkflowStep?
 
   @@map("jobs")
+}
+
+enum WorkflowStatus {
+  PENDING
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+model Workflow {
+  id          String            @id @default(uuid())
+  name        String
+  status      WorkflowStatus    @default(PENDING)
+  currentStep String?           @map("current_step")
+  progress    Float             @default(0.0)
+  userId      String            @map("user_id")
+  user        User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime          @default(now()) @map("created_at")
+  updatedAt   DateTime          @updatedAt @map("updated_at")
+  steps       WorkflowStep[]
+  histories   WorkflowHistory[]
+
+  @@map("workflows")
+}
+
+model WorkflowStep {
+  id          String         @id @default(uuid())
+  workflowId  String         @map("workflow_id")
+  workflow    Workflow       @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stepId      String         @map("step_id")
+  stepNumber  Int            @map("step_number")
+  jobType     String         @map("job_type")
+  status      WorkflowStatus @default(PENDING)
+  priority    JobPriority    @default(MEDIUM)
+  payload     Json
+  dependsOn   Json
+  startedAt   DateTime?      @map("started_at")
+  completedAt DateTime?      @map("completed_at")
+  jobId       String?        @unique @map("job_id")
+  job         Job?           @relation(fields: [jobId], references: [id], onDelete: SetNull)
+
+  @@unique([workflowId, stepId])
+  @@map("workflow_steps")
+}
+
+model WorkflowHistory {
+  id          String   @id @default(uuid())
+  workflowId  String   @map("workflow_id")
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+  stepId      String?  @map("step_id")
+  event       String
+  message     String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("workflow_histories")
 }
