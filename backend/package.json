@@ -9,7 +9,7 @@
     "start": "node dist/server.js",
     "worker": "node dist/worker.js",
     "worker:dev": "ts-node-dev --respawn --esm src/worker.ts",
-    "test": "node --test dist/modules/auth/auth.test.js dist/modules/jobs/job.test.js dist/modules/jobs/queue.test.js"
+    "test": "node --test dist/modules/auth/auth.test.js && node --test dist/modules/jobs/job.test.js && node --test dist/modules/jobs/queue.test.js && node --test dist/modules/workflow/workflow.test.js"
   },
   "keywords": [],
   "author": "",
