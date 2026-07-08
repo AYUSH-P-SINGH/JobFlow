@@ -3,6 +3,7 @@ import { EnqueueService } from './enqueue.service.js';
 import { CreateJobInput, UpdateJobInput, JobFilter, JobPagination, Job, JobStatus } from './job.types.js';
 import { ForbiddenError, NotFoundError, BadRequestError } from '../../common/errors/errors.js';
 import { logger } from '../../common/logger/logger.js';
+import { EventPublisher } from '../../events/event.publisher.js';
 
 export class JobService {
   /**
@@ -115,7 +116,9 @@ export class JobService {
       throw new BadRequestError('Only PENDING or QUEUED jobs can be cancelled');
     }
 
-    return jobRepository.updateStatus(id, JobStatus.CANCELLED);
+    const updatedJob = await jobRepository.updateStatus(id, JobStatus.CANCELLED);
+    EventPublisher.publishJobEvent('job.cancelled', updatedJob);
+    return updatedJob;
   }
 }
 export default JobService;
