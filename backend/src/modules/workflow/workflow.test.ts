@@ -82,6 +82,14 @@ test.describe('Workflow Module Integration Tests', { concurrency: 1 }, () => {
 
   test.after(async () => {
     await prisma.$disconnect();
+    try {
+      const { closeAllQueues } = await import('../../queues/queue.factory.js');
+      await closeAllQueues();
+    } catch {}
+    try {
+      const { redisConnection } = await import('../../config/redis.js');
+      await redisConnection.quit();
+    } catch {}
   });
 
   // Helper to poll for workflow completion/terminal status in tests to avoid test race conditions

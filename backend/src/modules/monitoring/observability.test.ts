@@ -93,6 +93,10 @@ test.describe('Observability & Real-Time Monitoring Integration Tests', { concur
       server.close(() => resolve());
     });
     await prisma.$disconnect();
+    try {
+      const { redisConnection } = await import('../../config/redis.js');
+      await redisConnection.quit();
+    } catch {}
   });
 
   test('Event Bus - pub/sub custom events', async () => {

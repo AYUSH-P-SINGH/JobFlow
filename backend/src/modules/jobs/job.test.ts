@@ -62,6 +62,10 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
 
   test.after(async () => {
     await prisma.$disconnect();
+    try {
+      const { redisConnection } = await import('../../config/redis.js');
+      await redisConnection.quit();
+    } catch {}
   });
 
   // 1. Create Job tests
