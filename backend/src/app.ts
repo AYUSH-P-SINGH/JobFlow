@@ -18,6 +18,8 @@ app.use(helmet());
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+import { rateLimitMiddleware } from './common/middleware/rateLimit.middleware.js';
+app.use(rateLimitMiddleware);
 
 // Integrate Morgan HTTP request logger with our custom Winston logger
 const morganFormat = ':remote-addr :method :url :status :res[content-length] - :response-time ms';
