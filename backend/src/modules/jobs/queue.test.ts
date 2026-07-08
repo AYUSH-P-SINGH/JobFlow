@@ -74,6 +74,7 @@ test.describe('Queue Architecture & Setup Tests', () => {
     const mockJob = {
       id: 'db-job-123',
       userId: 'user-456',
+      tenantId: null,
       title: 'Test Priority & Delay',
       description: 'Check options mapping',
       type: 'EMAIL',
