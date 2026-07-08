@@ -4,6 +4,7 @@ import { JobStatus } from './job.types.js';
 import { HandlerFactory } from '../../workers/handlers/handler.factory.js';
 import { WorkerHealthTracker } from '../../workers/worker.health.js';
 import { logger } from '../../common/logger/logger.js';
+import { WorkflowEngine } from '../workflow/engine/workflow.engine.js';
 
 export class ExecutionService {
   /**
@@ -58,6 +59,11 @@ export class ExecutionService {
       };
 
       await jobRepository.updateStatus(jobId, JobStatus.FAILED, errorPayload, undefined, new Date());
+      
+      WorkflowEngine.handleStepFailure(jobId, errorPayload).catch((wfErr) => {
+        logger.error(`[ExecutionService] Error notifying WorkflowEngine of handler failure for job ${jobId}: ${wfErr.message}`);
+      });
+
       healthTracker.failJob(jobId);
       throw err;
     }
@@ -80,6 +86,10 @@ export class ExecutionService {
         undefined,
         new Date()
       );
+
+      WorkflowEngine.handleStepCompletion(jobId, result || { success: true }).catch((wfErr) => {
+        logger.error(`[ExecutionService] Error notifying WorkflowEngine of step completion for job ${jobId}: ${wfErr.message}`);
+      });
 
       logger.info(`[ExecutionService] Job ${jobId} COMPLETED successfully.`);
       healthTracker.completeJob(jobId);
@@ -104,6 +114,10 @@ export class ExecutionService {
         undefined,
         new Date()
       );
+
+      WorkflowEngine.handleStepFailure(jobId, errorPayload).catch((wfErr) => {
+        logger.error(`[ExecutionService] Error notifying WorkflowEngine of step failure for job ${jobId}: ${wfErr.message}`);
+      });
 
       // Execute handler rollback if available
       if (handler.rollback) {
