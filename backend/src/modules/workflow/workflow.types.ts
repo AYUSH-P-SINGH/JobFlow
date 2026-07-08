@@ -1,3 +1,4 @@
+// Prisma generated types import mapping
 import { WorkflowStatus, JobPriority, Workflow as PrismaWorkflow, WorkflowStep as PrismaWorkflowStep, WorkflowHistory as PrismaWorkflowHistory } from '@prisma/client';
 
 export { WorkflowStatus, JobPriority };
