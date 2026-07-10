@@ -10,6 +10,8 @@ import webhookRoutes from '../modules/webhooks/webhook.routes.js';
 import pluginRoutes from '../modules/plugins/plugin.routes.js';
 import healthRoutes from './health.routes.js';
 import { createAdminRouter } from './admin.routes.js';
+import recoveryRoutes from '../modules/recovery/recovery.routes.js';
+import { RecoveryDashboard } from '../modules/recovery/recovery-dashboard.js';
 
 const router = Router();
 
@@ -45,6 +47,12 @@ router.use('/', monitoringRoutes);
 
 // Bull Board admin dashboard
 router.use('/admin/queues', createAdminRouter());
+
+// Recovery Dashboard API
+router.use('/api/v1/admin/recovery', recoveryRoutes);
+
+// Recovery Dashboard UI
+router.get('/admin/recovery', RecoveryDashboard.serve);
 
 // Expose /login and /register directly at root to satisfy basic milestone requirements
 router.use('/', authRoutes);
