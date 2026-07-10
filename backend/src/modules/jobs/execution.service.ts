@@ -8,6 +8,7 @@ import { WorkflowEngine } from '../workflow/engine/workflow.engine.js';
 import { runWithCorrelationId } from '../../common/tracing/context.js';
 import { randomUUID } from 'crypto';
 import { EventPublisher } from '../../events/event.publisher.js';
+import { DLQService } from '../recovery/dlq.service.js';
 
 export class ExecutionService {
   /**
@@ -60,6 +61,13 @@ export class ExecutionService {
       const failedJob = await jobRepository.updateStatus(jobId, JobStatus.FAILED, errorPayload, undefined, new Date());
       EventPublisher.publishJobEvent('job.failed', failedJob, undefined, undefined, errorPayload);
       
+      const maxAttempts = bullJob.opts.attempts || 3;
+      if (attempts >= maxAttempts) {
+        await DLQService.moveToDLQ(jobId, (bullJob as any).queue.name, dbJob.payload, errorPayload, attempts).catch((dlqErr) => {
+          logger.error(`[ExecutionService] Failed to move job ${jobId} to DLQ: ${dlqErr.message}`);
+        });
+      }
+
       WorkflowEngine.handleStepFailure(jobId, errorPayload).catch((wfErr) => {
         logger.error(`[ExecutionService] Error notifying WorkflowEngine of handler failure for job ${jobId}: ${wfErr.message}`);
       });
@@ -119,6 +127,13 @@ export class ExecutionService {
       );
 
       EventPublisher.publishJobEvent('job.failed', failedJob2, undefined, undefined, errorPayload);
+
+      const maxAttempts = bullJob.opts.attempts || 3;
+      if (attempts >= maxAttempts) {
+        await DLQService.moveToDLQ(jobId, (bullJob as any).queue.name, dbJob.payload, errorPayload, attempts).catch((dlqErr) => {
+          logger.error(`[ExecutionService] Failed to move job ${jobId} to DLQ: ${dlqErr.message}`);
+        });
+      }
 
       WorkflowEngine.handleStepFailure(jobId, errorPayload).catch((wfErr) => {
         logger.error(`[ExecutionService] Error notifying WorkflowEngine of step failure for job ${jobId}: ${wfErr.message}`);
