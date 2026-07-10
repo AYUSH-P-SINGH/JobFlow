@@ -22,6 +22,8 @@ model Tenant {
   schedules     WorkflowSchedule[]
   webhooks      Webhook[]
   auditLogs     AuditLog[]
+  policies      Policy[]
+  quota         TenantQuota?
 
   @@map("tenants")
 }
@@ -167,6 +169,8 @@ model Workflow {
   version         WorkflowVersion?  @relation(fields: [versionId], references: [id], onDelete: SetNull)
   triggerType     String            @default("MANUAL") @map("trigger_type")
   triggerMetadata Json?             @map("trigger_metadata")
+  checkpoints     WorkflowCheckpoint[]
+  recoveryLogs    RecoveryLog[]
 
   @@map("workflows")
 }
@@ -281,4 +285,89 @@ model AuditLog {
   tenant    Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("audit_logs")
+}
+
+model DeadLetterJob {
+  id           String    @id @default(uuid())
+  jobId        String    @unique @map("job_id")
+  queueName    String    @map("queue_name")
+  payload      Json
+  error        Json?
+  attemptsMade Int       @map("attempts_made")
+  failedAt     DateTime  @default(now()) @map("failed_at")
+  status       String    @default("FAILED") // FAILED, REPLAYED, DISCARDED
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@map("dead_letter_jobs")
+}
+
+model WorkflowCheckpoint {
+  id          String   @id @default(uuid())
+  workflowId  String   @map("workflow_id")
+  stepId      String   @map("step_id")
+  stepNumber  Int      @map("step_number")
+  status      String   @map("status")
+  result      Json?    @map("result")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@unique([workflowId, stepId])
+  @@map("workflow_checkpoints")
+}
+
+model Policy {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  rules       Json     // e.g. { maxRuntime, allowedJobTypes, restrictedUsers, businessHours }
+  isActive    Boolean  @default(true) @map("is_active")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  tenantId    String?  @map("tenant_id")
+  tenant      Tenant?  @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("policies")
+}
+
+model TenantQuota {
+  id                  String   @id @default(uuid())
+  tenantId            String   @unique @map("tenant_id")
+  maxWorkflowsPerDay  Int      @default(100) @map("max_workflows_per_day")
+  maxConcurrent       Int      @default(20) @map("max_concurrent_workflows")
+  maxApiCallsPerMonth Int      @default(10000) @map("max_api_calls_per_month")
+  retentionDays       Int      @default(90) @map("retention_days")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  tenant              Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+
+  @@map("tenant_quotas")
+}
+
+model FeatureFlag {
+  id          String   @id @default(uuid())
+  key         String   @unique
+  description String?
+  enabled     Boolean  @default(false)
+  rules       Json?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("feature_flags")
+}
+
+model RecoveryLog {
+  id          String   @id @default(uuid())
+  workflowId  String   @map("workflow_id")
+  stepId      String?  @map("step_id")
+  action      String   // RESUMED, RESET
+  details     String?
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  workflow    Workflow @relation(fields: [workflowId], references: [id], onDelete: Cascade)
+
+  @@map("recovery_logs")
 }

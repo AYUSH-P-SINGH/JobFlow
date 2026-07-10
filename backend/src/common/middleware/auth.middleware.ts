@@ -5,6 +5,8 @@ import { userRepository } from '../../modules/auth/auth.repository.js';
 import { UnauthorizedError } from '../errors/errors.js';
 import { logger } from '../logger/logger.js';
 import prisma from '../../prisma.js';
+import { QuotaService } from '../../modules/governance/quota.service.js';
+import { ComplianceService } from '../../modules/governance/compliance.service.js';
 
 declare global {
   namespace Express {
@@ -53,6 +55,14 @@ export const authMiddleware = async (
         tenantId: apiKeyRecord.tenantId,
       };
 
+      // Enforce API Quotas for API Key usage
+      await QuotaService.checkApiQuota(apiKeyRecord.tenantId);
+
+      // Log API key usage for compliance audit
+      await ComplianceService.logApiKeyUsage(apiKeyRecord.id, apiKeyRecord.tenantId, req.path, req.method).catch((err) => {
+        logger.error(`Failed to log compliance API Key usage: ${err.message}`);
+      });
+
       return next();
     }
 
@@ -86,6 +96,9 @@ export const authMiddleware = async (
       tenantId,
     };
     req.tenantId = tenantId;
+
+    // Enforce API Quotas for JWT User session
+    await QuotaService.checkApiQuota(tenantId);
 
     next();
   } catch (error) {

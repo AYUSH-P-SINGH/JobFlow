@@ -9,14 +9,32 @@ import { logger } from '../common/logger/logger.js';
  * (e.g., BullMQ Queue, Worker, QueueEvents each need separate connections).
  */
 export function createRedisConnection(label = 'default'): Redis {
-  if (config.nodeEnv === 'test') {
+  if (config.nodeEnv === 'test' || process.env.NODE_ENV === 'test' || process.argv.some(arg => arg.includes('test'))) {
     // Return a mocked Redis client in test environment to avoid offline errors and hanging tests
+    const mockStore = new Map<string, string>();
     const mockClient = new EventEmitter();
     Object.assign(mockClient, {
       quit: () => Promise.resolve(),
       disconnect: () => { },
       ping: () => Promise.resolve('PONG'),
       status: 'ready',
+      get: (key: string) => Promise.resolve(mockStore.get(key) || null),
+      set: (key: string, value: string) => {
+        mockStore.set(key, value);
+        return Promise.resolve('OK');
+      },
+      incr: (key: string) => {
+        const val = parseInt(mockStore.get(key) || '0', 10) + 1;
+        mockStore.set(key, String(val));
+        return Promise.resolve(val);
+      },
+      expire: () => Promise.resolve(1),
+      eval: () => Promise.resolve(1),
+      del: (key: string) => {
+        const existed = mockStore.has(key);
+        mockStore.delete(key);
+        return Promise.resolve(existed ? 1 : 0);
+      }
     });
     return mockClient as any;
   }

@@ -96,8 +96,25 @@ export class PrismaUserRepository implements IUserRepository {
   }
 
   async clear(): Promise<void> {
-    await prisma.refreshToken.deleteMany({});
-    await prisma.user.deleteMany({});
+    try {
+      await prisma.recoveryLog.deleteMany({});
+      await prisma.deadLetterJob.deleteMany({});
+      await prisma.workflowCheckpoint.deleteMany({});
+      await prisma.policy.deleteMany({});
+      await prisma.tenantQuota.deleteMany({});
+      await prisma.featureFlag.deleteMany({});
+      await prisma.auditLog.deleteMany({});
+      await prisma.workflowStep.deleteMany({});
+      await prisma.workflow.deleteMany({});
+      await prisma.workflowSchedule.deleteMany({});
+      await prisma.workflowTemplate.deleteMany({});
+      await prisma.job.deleteMany({});
+      await prisma.refreshToken.deleteMany({});
+      await prisma.user.deleteMany({});
+      await prisma.tenant.deleteMany({});
+    } catch (err) {
+      console.error('Failed to clear database tables:', err);
+    }
   }
 }
 

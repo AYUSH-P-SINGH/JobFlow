@@ -7,14 +7,54 @@ import routes from './routes/index.js';
 import { errorMiddleware } from './common/middleware/error.middleware.js';
 import { notFoundMiddleware } from './common/middleware/notFound.middleware.js';
 import { tracingMiddleware } from './common/middleware/tracing.middleware.js';
+import { MetricsService } from './modules/monitoring/metrics.service.js';
+import './modules/plugins/plugin.manager.js';
 
 const app = express();
 
 // Trace all incoming requests first
 app.use(tracingMiddleware);
 
-// Standard middlewares
-app.use(helmet());
+// Record API response time latency
+app.use((req, res, next) => {
+  const start = process.hrtime();
+  res.on('finish', () => {
+    const diff = process.hrtime(start);
+    const durationSeconds = diff[0] + diff[1] / 1e9;
+    if (!req.path.includes('/metrics') && !req.path.includes('/admin')) {
+      const pathRoute = req.route ? req.route.path : req.path;
+      MetricsService.recordHttpDuration(req.method, pathRoute, res.statusCode, durationSeconds);
+    }
+  });
+  next();
+});
+
+// Standard middlewares & Strict Security Headers
+app.use(
+  helmet({
+    contentSecurityPolicy: {
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
+        fontSrc: ["'self'", "https://fonts.gstatic.com"],
+        imgSrc: ["'self'", "data:"],
+        connectSrc: ["'self'"],
+      },
+    },
+    hsts: {
+      maxAge: 31536000,
+      includeSubDomains: true,
+      preload: true,
+    },
+    frameguard: {
+      action: 'deny',
+    },
+    referrerPolicy: {
+      policy: 'no-referrer',
+    },
+  })
+);
 app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));

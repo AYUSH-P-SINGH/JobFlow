@@ -40,5 +40,4 @@ HandlerFactory.register('REPORT', new ReportHandler());
 HandlerFactory.register('NOTIFICATION', new NotificationHandler());
 HandlerFactory.register('IMAGE', new ImageHandler());
 
-// Load and register custom plugins dynamically
-await import('../../modules/plugins/plugin.manager.js');
+// Default core handlers are registered on module load. Plugins register themselves dynamically.
