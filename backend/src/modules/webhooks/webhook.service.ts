@@ -4,6 +4,7 @@ import { eventBus } from '../../events/event.bus.js';
 import { TemplateService } from '../workflow/template.service.js';
 import { logger } from '../../common/logger/logger.js';
 import { NotFoundError, BadRequestError } from '../../common/errors/errors.js';
+import { FeatureService } from '../feature-flags/feature.service.js';
 
 export class WebhookService {
   /**
@@ -166,6 +167,13 @@ export class WebhookService {
       try {
         const tenantId = payload.workflow?.tenantId;
         if (!tenantId) return;
+
+        // Check feature flag for webhooks
+        const disableWebhooks = await FeatureService.isEnabled('disable-webhooks', { tenantId });
+        if (disableWebhooks) {
+          logger.info(`Outbound webhooks are disabled by feature flag 'disable-webhooks' for tenant ${tenantId}`);
+          return;
+        }
 
         // Query active outbound webhooks for this tenant
         const webhooks = await prisma.webhook.findMany({
