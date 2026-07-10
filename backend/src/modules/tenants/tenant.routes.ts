@@ -13,4 +13,9 @@ router.get('/:tenantId/keys', authMiddleware, TenantController.listApiKeys);
 router.delete('/:tenantId/keys/:keyId', authMiddleware, TenantController.revokeApiKey);
 router.post('/:tenantId/keys/:keyId/rotate', authMiddleware, TenantController.rotateApiKey);
 
+// Organization Administration APIs
+router.post('/:tenantId/invite', authMiddleware, TenantController.inviteUser);
+router.patch('/:tenantId/quotas', authMiddleware, TenantController.updateQuotas);
+router.get('/:tenantId/billing', authMiddleware, TenantController.getBillingMetrics);
+
 export default router;
