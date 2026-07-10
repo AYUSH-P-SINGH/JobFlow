@@ -6,13 +6,32 @@ import { WORKFLOW_EVENTS } from '../workflow.constants.js';
 import { logger } from '../../../common/logger/logger.js';
 import prisma from '../../../prisma.js';
 import { EventPublisher } from '../../../events/event.publisher.js';
+import { CheckpointService } from '../../recovery/checkpoint.service.js';
+import { DistributedLock } from '../../../modules/resilience/distributed-lock.js';
 
 export class WorkflowEngine {
   /**
-   * Main state evaluation tick for a workflow.
-   * Scans for ready steps, evaluates conditions, schedules jobs, and transitions workflow status.
+   * Main entrypoint for workflow evaluation, protected by a distributed lock.
    */
   public static async tick(workflowId: string): Promise<void> {
+    const lockKey = `lock:workflow:tick:${workflowId}`;
+    const token = await DistributedLock.acquire(lockKey, 15000);
+    if (!token) {
+      logger.info(`[WorkflowEngine] Could not acquire lock for workflow: ${workflowId}. Skipping execution tick.`);
+      return;
+    }
+
+    try {
+      await this.doTick(workflowId);
+    } finally {
+      await DistributedLock.release(lockKey, token);
+    }
+  }
+
+  /**
+   * Internal state evaluation tick for a workflow.
+   */
+  private static async doTick(workflowId: string): Promise<void> {
     logger.info(`[WorkflowEngine] Ticking workflow: ${workflowId}`);
 
     const workflow = await prisma.workflow.findUnique({
@@ -105,7 +124,7 @@ export class WorkflowEngine {
             }
 
             // Re-tick to process newly ready branches or workflow completion
-            return this.tick(workflowId);
+            return this.doTick(workflowId);
           }
         }
 
@@ -128,7 +147,7 @@ export class WorkflowEngine {
             step.stepId
           );
           // Re-tick to process failure state transitions
-          return this.tick(workflowId);
+          return this.doTick(workflowId);
         }
       }
     }
@@ -200,6 +219,15 @@ export class WorkflowEngine {
       WORKFLOW_EVENTS.STEP_COMPLETED,
       `Step "${step.stepId}" completed successfully.`,
       step.stepId
+    );
+
+    // Save checkpoint
+    await CheckpointService.saveCheckpoint(
+      step.workflowId,
+      step.stepId,
+      step.stepNumber,
+      'COMPLETED',
+      result
     );
 
     // Trigger next workflow steps
