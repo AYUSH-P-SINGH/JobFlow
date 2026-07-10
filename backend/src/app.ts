@@ -9,11 +9,15 @@ import { notFoundMiddleware } from './common/middleware/notFound.middleware.js';
 import { tracingMiddleware } from './common/middleware/tracing.middleware.js';
 import { MetricsService } from './modules/monitoring/metrics.service.js';
 import './modules/plugins/plugin.manager.js';
+import { GatewayMiddleware } from './gateway/gateway.middleware.js';
 
 const app = express();
 
 // Trace all incoming requests first
 app.use(tracingMiddleware);
+
+// Centralized API Gateway Policing (Rate Limiting, Auditing, Correlation propagation)
+app.use(GatewayMiddleware.execute);
 
 // Record API response time latency
 app.use((req, res, next) => {
