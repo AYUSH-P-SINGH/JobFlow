@@ -231,4 +231,55 @@ export class WorkflowService {
 
     return updatedWorkflow;
   }
+
+  /**
+   * Compares two workflows (e.g. v1 and v2) to find topological diffs.
+   */
+  static async compareWorkflows(workflowIdA: string, workflowIdB: string): Promise<any> {
+    const workflowA = await workflowRepository.findById(workflowIdA);
+    const workflowB = await workflowRepository.findById(workflowIdB);
+
+    if (!workflowA || !workflowB) {
+      throw new NotFoundError('One or both workflows not found for comparison.');
+    }
+
+    const stepsA = workflowA.steps;
+    const stepsB = workflowB.steps;
+
+    const idsA = stepsA.map((s) => s.stepId);
+    const idsB = stepsB.map((s) => s.stepId);
+
+    const added = idsB.filter((id) => !idsA.includes(id));
+    const removed = idsA.filter((id) => !idsB.includes(id));
+    const kept = idsA.filter((id) => idsB.includes(id));
+
+    const changed: any[] = [];
+
+    for (const id of kept) {
+      const stepA = stepsA.find((s) => s.stepId === id)!;
+      const stepB = stepsB.find((s) => s.stepId === id)!;
+
+      const depsA = Array.isArray(stepA.dependsOn) ? [...(stepA.dependsOn as string[])].sort() : [];
+      const depsB = Array.isArray(stepB.dependsOn) ? [...(stepB.dependsOn as string[])].sort() : [];
+
+      const depsChanged = JSON.stringify(depsA) !== JSON.stringify(depsB);
+      const payloadChanged = JSON.stringify(stepA.payload) !== JSON.stringify(stepB.payload);
+
+      if (depsChanged || payloadChanged) {
+        changed.push({
+          stepId: id,
+          dependenciesChanged: depsChanged,
+          payloadChanged: payloadChanged,
+          oldDependencies: stepA.dependsOn,
+          newDependencies: stepB.dependsOn,
+        });
+      }
+    }
+
+    return {
+      added,
+      removed,
+      changed,
+    };
+  }
 }

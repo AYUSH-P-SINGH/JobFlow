@@ -26,6 +26,7 @@ router.get('/templates/:id/export', TemplateController.exportTemplate);
 router.post('/', validateRequest(createWorkflowSchema), WorkflowController.create);
 router.get('/', validateRequest(queryWorkflowsSchema), WorkflowController.getAll);
 router.get('/metrics', WorkflowController.getMetrics);
+router.get('/compare', WorkflowController.compare);
 router.get('/:id', validateRequest(workflowIdParamSchema), WorkflowController.getById);
 router.patch('/:id/cancel', validateRequest(workflowIdParamSchema), WorkflowController.cancel);
 router.post('/:id/retry', validateRequest(workflowIdParamSchema), WorkflowController.retry);
