@@ -1,6 +1,9 @@
 import { workflowRepository } from './workflow.repository.js';
 import { WorkflowEngine } from './engine/workflow.engine.js';
 import { WorkflowStateMachine } from './engine/state.machine.js';
+import { PolicyEngine } from '../governance/policy.engine.js';
+import { QuotaService } from '../governance/quota.service.js';
+import { ComplianceService } from '../governance/compliance.service.js';
 import {
   CreateWorkflowStepInput,
   Workflow,
@@ -25,6 +28,18 @@ export class WorkflowService {
     steps: CreateWorkflowStepInput[],
     userId: string
   ): Promise<Workflow & { steps: WorkflowStep[] }> {
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: { tenantId: true },
+    });
+    const tenantId = user?.tenantId || null;
+
+    // Evaluate policies before creating workflow
+    await PolicyEngine.evaluate(userId, tenantId, steps);
+
+    // Enforce tenant workflow quotas
+    await QuotaService.checkWorkflowLimits(tenantId);
+
     const workflow = await workflowRepository.create(name, userId, steps);
 
     await workflowRepository.addHistory(
@@ -103,6 +118,11 @@ export class WorkflowService {
 
     // Validate state transition
     WorkflowStateMachine.validateTransition(workflow.status, WorkflowStatus.CANCELLED);
+
+    // Log cancellation for audit compliance
+    await ComplianceService.logWorkflowCancellation(currentUser.id, id).catch((err) => {
+      logger.error(`Failed to log compliance workflow cancellation: ${err.message}`);
+    });
 
     // Cancel all steps that are not already finished
     const queue = getJobQueue();
