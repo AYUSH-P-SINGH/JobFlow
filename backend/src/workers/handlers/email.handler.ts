@@ -1,14 +1,21 @@
 import { z } from 'zod';
 import { BaseHandler } from './base.handler.js';
 import { logger } from '../../common/logger/logger.js';
+import { CircuitBreaker } from '../../modules/resilience/circuit-breaker.js';
 
 const emailPayloadSchema = z.object({
   to: z.string().email('Invalid recipient email address'),
   subject: z.string().min(1, 'Subject cannot be empty'),
   body: z.string().min(1, 'Body cannot be empty'),
+  simulateFailure: z.boolean().optional(),
 });
 
 export type EmailPayload = z.infer<typeof emailPayloadSchema>;
+
+const emailCircuitBreaker = new CircuitBreaker('email-service', {
+  failureThreshold: 3,
+  cooldownPeriod: 10000,
+});
 
 export class EmailHandler extends BaseHandler<EmailPayload, { sent: boolean; recipient: string; timestamp: Date }> {
   readonly type = 'EMAIL';
@@ -21,23 +28,28 @@ export class EmailHandler extends BaseHandler<EmailPayload, { sent: boolean; rec
     payload: EmailPayload,
     progress: (percent: number) => Promise<void>
   ): Promise<{ sent: boolean; recipient: string; timestamp: Date }> {
-    logger.info(`[EmailHandler] Simulating sending email to ${payload.to}...`);
+    return emailCircuitBreaker.execute(async () => {
+      logger.info(`[EmailHandler] Simulating sending email to ${payload.to}...`);
 
-    await progress(0);
-    // Simulate delay
-    await new Promise((resolve) => setTimeout(resolve, 200));
+      if (payload.simulateFailure) {
+        throw new Error('SMTP connection timed out (simulated service failure)');
+      }
 
-    await progress(50);
-    await new Promise((resolve) => setTimeout(resolve, 200));
+      await progress(0);
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    await progress(100);
+      await progress(50);
+      await new Promise((resolve) => setTimeout(resolve, 100));
 
-    logger.info(`[EmailHandler] Email sent to ${payload.to}`);
-    return {
-      sent: true,
-      recipient: payload.to,
-      timestamp: new Date(),
-    };
+      await progress(100);
+
+      logger.info(`[EmailHandler] Email sent to ${payload.to}`);
+      return {
+        sent: true,
+        recipient: payload.to,
+        timestamp: new Date(),
+      };
+    });
   }
 
   async rollback(payload: EmailPayload, error: Error): Promise<void> {
