@@ -11,5 +11,6 @@ router.post('/', TenantController.createTenant);
 router.post('/:tenantId/keys', authMiddleware, TenantController.generateApiKey);
 router.get('/:tenantId/keys', authMiddleware, TenantController.listApiKeys);
 router.delete('/:tenantId/keys/:keyId', authMiddleware, TenantController.revokeApiKey);
+router.post('/:tenantId/keys/:keyId/rotate', authMiddleware, TenantController.rotateApiKey);
 
 export default router;

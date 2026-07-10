@@ -154,4 +154,67 @@ export class TenantController {
       next(error);
     }
   }
+
+  /**
+   * Rotate an API Key by revoking the old one and creating a new one with same name
+   */
+  public static async rotateApiKey(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { tenantId, keyId } = req.params;
+      const { expiresDays } = req.body;
+
+      if (req.user?.role !== 'ADMIN' && req.tenantId !== tenantId) {
+        throw new ForbiddenError('You do not have access to this tenant');
+      }
+
+      const oldKey = await prisma.apiKey.findFirst({
+        where: { id: keyId, tenantId },
+      });
+
+      if (!oldKey) {
+        throw new NotFoundError('API Key not found');
+      }
+
+      // Revoke the old key
+      await prisma.apiKey.delete({
+        where: { id: keyId },
+      });
+
+      // Generate the new key
+      const rawKey = 'jf_' + crypto.randomBytes(32).toString('hex');
+      const hashedKey = crypto.createHash('sha256').update(rawKey).digest('hex');
+
+      let expiresAt: Date | null = null;
+      if (expiresDays) {
+        expiresAt = new Date();
+        expiresAt.setDate(expiresAt.getDate() + parseInt(expiresDays, 10));
+      } else if (oldKey.expiresAt) {
+        // Carry over old expiration if not customized in rotation request
+        expiresAt = oldKey.expiresAt;
+      }
+
+      const newKey = await prisma.apiKey.create({
+        data: {
+          name: oldKey.name + ' (Rotated)',
+          hashedKey,
+          tenantId,
+          expiresAt,
+        },
+      });
+
+      logger.info(`API Key rotated successfully for Tenant ${tenantId}. Old: ${oldKey.name}, New: ${newKey.name}`);
+      res.status(200).json({
+        message: 'API Key rotated successfully. Save this new key as it will not be shown again.',
+        data: {
+          id: newKey.id,
+          name: newKey.name,
+          apiKey: rawKey,
+          expiresAt: newKey.expiresAt,
+          createdAt: newKey.createdAt,
+        },
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
 }
