@@ -41,6 +41,29 @@ import client from 'prom-client';
   });
   register.registerMetric(workerMemoryGauge);
 
+  const workflowExecutionCounter = new client.Counter({
+    name: 'jobflow_workflows_total',
+    help: 'Total number of executed workflows by status',
+    labelNames: ['status'],
+  });
+  register.registerMetric(workflowExecutionCounter);
+
+  const httpRequestDuration = new client.Histogram({
+    name: 'http_request_duration_seconds',
+    help: 'Duration of HTTP requests in seconds',
+    labelNames: ['method', 'route', 'status_code'],
+    buckets: [0.05, 0.1, 0.2, 0.5, 1, 2, 5],
+  });
+  register.registerMetric(httpRequestDuration);
+
+  const jobQueueDelay = new client.Histogram({
+    name: 'jobflow_job_queue_delay_seconds',
+    help: 'Delay between job creation and execution start in seconds',
+    labelNames: ['type'],
+    buckets: [0.5, 1, 2, 5, 10, 30],
+  });
+  register.registerMetric(jobQueueDelay);
+
   export class MetricsService {
     /**
      * Initializes metric event listeners to count completions/failures.
@@ -48,11 +71,38 @@ import client from 'prom-client';
     public static initSubscriptions(): void {
       eventBus.subscribe('job.completed', ({ job }) => {
         completedJobsCounter.inc({ type: job.type });
+        if (job.startedAt && job.createdAt) {
+          const delay = (new Date(job.startedAt).getTime() - new Date(job.createdAt).getTime()) / 1000;
+          jobQueueDelay.observe({ type: job.type }, delay);
+        }
       });
 
       eventBus.subscribe('job.failed', ({ job }) => {
         failedJobsCounter.inc({ type: job.type });
       });
+
+      eventBus.subscribe('workflow.completed', () => {
+        workflowExecutionCounter.inc({ status: 'completed' });
+      });
+
+      eventBus.subscribe('workflow.failed', () => {
+        workflowExecutionCounter.inc({ status: 'failed' });
+      });
+    }
+
+    /**
+     * Records HTTP latency metrics for REST endpoints.
+     */
+    public static recordHttpDuration(
+      method: string,
+      route: string,
+      statusCode: number,
+      durationSeconds: number
+    ): void {
+      httpRequestDuration.observe(
+        { method, route, status_code: String(statusCode) },
+        durationSeconds
+      );
     }
 
     /**
