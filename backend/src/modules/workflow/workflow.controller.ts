@@ -14,6 +14,15 @@ export class WorkflowController {
         throw new UnauthorizedError('Unauthorized');
       }
 
+      // Convert visual representation to linear steps if nodes and edges are provided
+      if (req.body.nodes && req.body.edges) {
+        const { VisualWorkflowConverter } = await import('./visual-converter.js');
+        req.body.steps = VisualWorkflowConverter.toDAGSteps({
+          nodes: req.body.nodes,
+          edges: req.body.edges,
+        });
+      }
+
       const parsed = await createWorkflowSchema.parseAsync({ body: req.body });
       const { name, steps } = parsed.body;
 
@@ -151,6 +160,34 @@ export class WorkflowController {
       res.status(200).json({
         success: true,
         data: WORKFLOW_TEMPLATES,
+      });
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  static async compare(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const currentUser = req.user;
+      if (!currentUser) {
+        throw new UnauthorizedError('Unauthorized');
+      }
+
+      const { workflowIdA, workflowIdB } = req.query;
+
+      if (!workflowIdA || !workflowIdB) {
+        res.status(400).json({
+          success: false,
+          error: 'Query parameters "workflowIdA" and "workflowIdB" are required.',
+        });
+        return;
+      }
+
+      const diff = await WorkflowService.compareWorkflows(workflowIdA as string, workflowIdB as string);
+
+      res.status(200).json({
+        success: true,
+        data: diff,
       });
     } catch (error) {
       next(error);
