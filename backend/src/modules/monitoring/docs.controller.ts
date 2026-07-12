@@ -270,6 +270,188 @@ const OPENAPI_SPEC = {
         },
       },
     },
+    '/api/v1/workflows': {
+      post: {
+        summary: 'Create and start a new sequential/parallel/conditional workflow execution',
+        tags: ['Workflows'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['name', 'steps'],
+                properties: {
+                  name: { type: 'string', description: 'Name of the workflow execution' },
+                  steps: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      required: ['stepId', 'jobType', 'payload', 'dependsOn'],
+                      properties: {
+                        stepId: { type: 'string', description: 'Unique identifier for the step in this DAG' },
+                        jobType: { type: 'string', description: 'Job type handler to execute' },
+                        priority: { type: 'string', enum: ['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'] },
+                        payload: { type: 'object', description: 'Input variables for the job handler. Can include a "condition" string.' },
+                        dependsOn: { type: 'array', items: { type: 'string' }, description: 'Step IDs this step depends on' },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': { description: 'Workflow registered and execution started' },
+          '400': { description: 'Invalid DAG definition (circular deps, missing references, duplicate IDs)' },
+        },
+      },
+      get: {
+        summary: 'List workflow executions',
+        tags: ['Workflows'],
+        parameters: [
+          { name: 'page', in: 'query', schema: { type: 'integer' } },
+          { name: 'limit', in: 'query', schema: { type: 'integer' } },
+          { name: 'status', in: 'query', schema: { type: 'string', enum: ['PENDING', 'RUNNING', 'COMPLETED', 'FAILED', 'CANCELLED'] } },
+        ],
+        responses: {
+          '200': { description: 'List of workflow executions' },
+        },
+      },
+    },
+    '/api/v1/workflows/metrics': {
+      get: {
+        summary: 'Get workflow orchestration statistics',
+        tags: ['Workflows'],
+        responses: {
+          '200': { description: 'Orchestration metrics summary' },
+        },
+      },
+    },
+    '/api/v1/workflows/compare': {
+      get: {
+        summary: 'Compare two workflow execution topologies',
+        tags: ['Workflows'],
+        parameters: [
+          { name: 'workflowIdA', in: 'query', required: true, schema: { type: 'string' } },
+          { name: 'workflowIdB', in: 'query', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Structural differences between workflow topologies' },
+        },
+      },
+    },
+    '/api/v1/workflows/{id}': {
+      get: {
+        summary: 'Get details of a specific workflow execution',
+        tags: ['Workflows'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Workflow execution details including step details and history logs' },
+          '404': { description: 'Workflow not found' },
+        },
+      },
+    },
+    '/api/v1/workflows/{id}/cancel': {
+      patch: {
+        summary: 'Cancel a pending or running workflow execution',
+        tags: ['Workflows'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Workflow cancelled and active jobs terminated' },
+        },
+      },
+    },
+    '/api/v1/workflows/{id}/retry': {
+      post: {
+        summary: 'Retry a failed or cancelled workflow execution',
+        tags: ['Workflows'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Workflow reset and scheduled steps restarted from the failure point' },
+        },
+      },
+    },
+    '/api/v1/monitoring/dashboard': {
+      get: {
+        summary: 'Get dashboard overview statistics',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': { description: 'Overall statistics including active, failed, completed counts' },
+        },
+      },
+    },
+    '/api/v1/monitoring/queues': {
+      get: {
+        summary: 'Get details and size stats of queues',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': { description: 'Queue metrics (waiting, active, completed, failed, delayed counts)' },
+        },
+      },
+    },
+    '/api/v1/monitoring/workflows': {
+      get: {
+        summary: 'List active workflow executions',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': { description: 'Active workflows list' },
+        },
+      },
+    },
+    '/api/v1/monitoring/workers': {
+      get: {
+        summary: 'Get active workers and CPU/memory utilization statistics',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': { description: 'Worker stats (status, cpu, memory, current job, uptime)' },
+        },
+      },
+    },
+    '/api/v1/monitoring/logs': {
+      get: {
+        summary: 'Query platform audit logs',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': { description: 'List of audit records' },
+        },
+      },
+    },
+    '/api/v1/monitoring/workflows/{id}/timeline': {
+      get: {
+        summary: 'Get workflow execution history logs as a timeline sequence',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Timeline events array' },
+        },
+      },
+    },
+    '/api/v1/monitoring/analytics': {
+      get: {
+        summary: 'Get tenant analytics, execution throughput, and error rates',
+        tags: ['Monitoring'],
+        security: [{ BearerAuth: [] }],
+        responses: {
+          '200': { description: 'Tenant analytics details' },
+        },
+      },
+    },
   },
 };
 
