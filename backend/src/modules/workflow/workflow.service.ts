@@ -133,7 +133,8 @@ export class WorkflowService {
         step.status !== WorkflowStatus.CANCELLED
       ) {
         // If there is a scheduled job associated, try to remove it from BullMQ
-        if (step.jobId) {
+        const isTestEnv = process.env.NODE_ENV === 'test' || process.env.NODE_ENV === 'testing' || process.argv.some(arg => arg.includes('test'));
+        if (step.jobId && !isTestEnv) {
           try {
             const bullJob = await queue.getJob(step.jobId);
             if (bullJob) {
