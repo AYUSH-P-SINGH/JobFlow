@@ -1,0 +1,52 @@
+groups:
+  - name: jobflow-alerts
+    rules:
+      # Alert when queue backlog exceeds 1000 jobs
+      - alert: JobQueueBacklogHigh
+        expr: queue_waiting > 1000
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Job queue backlog is too high"
+          description: "There are more than 1000 jobs waiting in the queue. Current queue backlog: {{ $value }}."
+
+      # Alert when workflow failure rate is high (> 0.1% of all workflows)
+      - alert: WorkflowFailureRateHigh
+        expr: sum(rate(workflow_failed_total[5m])) / (sum(rate(workflow_started_total[5m])) + 0.0001) > 0.001
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Workflow failure rate is high"
+          description: "More than 0.1% of workflows are failing over the last 5 minutes."
+
+      # Alert when API request latency is high (99% of requests > 200ms)
+      - alert: ApiLatencyHigh
+        expr: histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket[5m])) by (le)) > 0.2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "API response latency is high"
+          description: "The 99th percentile of API response latency is {{ $value }} seconds, which exceeds 200ms."
+
+      # Alert when jobs wait in queue for too long (95% of jobs > 5s)
+      - alert: JobQueueDelayHigh
+        expr: histogram_quantile(0.95, sum(rate(queue_wait_time_bucket[5m])) by (le)) > 5.0
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Job queue wait time is high"
+          description: "95% of jobs are waiting in the queue for longer than 5 seconds (current: {{ $value }} seconds)."
+
+      # Alert when worker process crashes
+      - alert: WorkerProcessCrash
+        expr: up{job="jobflow-worker"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "JobFlow worker process down"
+          description: "A JobFlow background worker process has exited or cannot be reached by Prometheus."

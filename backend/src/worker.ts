@@ -9,6 +9,7 @@ import prisma from './prisma.js';
 import { redisConnection } from './config/redis.js';
 import { WorkerHealthTracker } from './workers/worker.health.js';
 import { initializeWorker, shutdownWorker } from './workers/worker.lifecycle.js';
+import { MetricsController } from './modules/monitoring/metrics.controller.js';
 
 async function bootstrap() {
   logger.info('Starting JobFlow Background Worker Process...');
@@ -26,6 +27,9 @@ async function bootstrap() {
     const workerPort = process.env.WORKER_PORT || '5001';
     const healthApp = express();
     
+    // Prometheus metrics scraper
+    healthApp.get('/metrics', MetricsController.prometheus);
+
     // /health (Liveness)
     healthApp.get('/health', (req, res) => {
       res.status(200).json({ 

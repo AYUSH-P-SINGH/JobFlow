@@ -8,6 +8,7 @@ import prisma from '../../../prisma.js';
 import { EventPublisher } from '../../../events/event.publisher.js';
 import { CheckpointService } from '../../recovery/checkpoint.service.js';
 import { DistributedLock } from '../../../modules/resilience/distributed-lock.js';
+import { context, propagation } from '@opentelemetry/api';
 
 export class WorkflowEngine {
   /**
@@ -49,150 +50,159 @@ export class WorkflowEngine {
       return;
     }
 
-    // If workflow is already in a terminal state, do not tick
-    if (
-      workflow.status === WorkflowStatus.COMPLETED ||
-      workflow.status === WorkflowStatus.FAILED ||
-      workflow.status === WorkflowStatus.CANCELLED
-    ) {
-      logger.warn(`[WorkflowEngine] Workflow ${workflowId} is in terminal state "${workflow.status}". Skipping tick.`);
-      return;
-    }
+    // Extract OpenTelemetry context from triggerMetadata
+    const triggerMeta = workflow.triggerMetadata as any;
+    const traceContext = triggerMeta?.traceContext;
+    const parentContext = traceContext
+      ? propagation.extract(context.active(), traceContext)
+      : context.active();
 
-    const steps = workflow.steps;
-    const totalSteps = steps.length;
-
-    // 1. Find steps that are ready to run
-    const readySteps = DependencyResolver.findReadySteps(steps);
-
-    if (readySteps.length > 0) {
-      // If the workflow is PENDING, transition it to RUNNING
-      if (workflow.status === WorkflowStatus.PENDING) {
-        const updatedWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING);
-        EventPublisher.publishWorkflowEvent('workflow.started', updatedWf);
-        await workflowRepository.addHistory(
-          workflowId,
-          WORKFLOW_EVENTS.STARTED,
-          `Workflow "${workflow.name}" started.`
-        );
+    await context.with(parentContext, async () => {
+      // If workflow is already in a terminal state, do not tick
+      if (
+        workflow.status === WorkflowStatus.COMPLETED ||
+        workflow.status === WorkflowStatus.FAILED ||
+        workflow.status === WorkflowStatus.CANCELLED
+      ) {
+        logger.warn(`[WorkflowEngine] Workflow ${workflowId} is in terminal state "${workflow.status}". Skipping tick.`);
+        return;
       }
 
-      for (const step of readySteps) {
-        const condition = step.payload && (step.payload as any).condition;
+      const steps = workflow.steps;
+      const totalSteps = steps.length;
 
-        if (condition) {
-          const conditionMet = DependencyResolver.evaluateCondition(condition, steps);
+      // 1. Find steps that are ready to run
+      const readySteps = DependencyResolver.findReadySteps(steps);
 
-          if (!conditionMet) {
-            logger.info(
-              `[WorkflowEngine] Step "${step.stepId}" condition "${condition}" failed. Skipping/Cancelling step.`
+      if (readySteps.length > 0) {
+        // If the workflow is PENDING, transition it to RUNNING
+        if (workflow.status === WorkflowStatus.PENDING) {
+          const updatedWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING);
+          EventPublisher.publishWorkflowEvent('workflow.started', updatedWf);
+          await workflowRepository.addHistory(
+            workflowId,
+            WORKFLOW_EVENTS.STARTED,
+            `Workflow "${workflow.name}" started.`
+          );
+        }
+
+        for (const step of readySteps) {
+          const condition = step.payload && (step.payload as any).condition;
+
+          if (condition) {
+            const conditionMet = DependencyResolver.evaluateCondition(condition, steps);
+
+            if (!conditionMet) {
+              logger.info(
+                `[WorkflowEngine] Step "${step.stepId}" condition "${condition}" failed. Skipping/Cancelling step.`
+              );
+
+              // Mark step as CANCELLED (skipped)
+              await workflowRepository.updateStepStatus(
+                step.id,
+                WorkflowStatus.CANCELLED,
+                undefined,
+                new Date()
+              );
+
+              await workflowRepository.addHistory(
+                workflowId,
+                WORKFLOW_EVENTS.STEP_CANCELLED,
+                `Step "${step.stepId}" skipped because its condition "${condition}" was not met.`,
+                step.stepId
+              );
+
+              // Resolve cascading cancellations for downstream dependencies
+              const cascadingStepIds = DependencyResolver.resolveCascadingCancellations(steps, [step.stepId]);
+              for (const stepId of cascadingStepIds) {
+                const dbStep = steps.find((s) => s.stepId === stepId);
+                if (dbStep) {
+                  await workflowRepository.updateStepStatus(
+                    dbStep.id,
+                    WorkflowStatus.CANCELLED,
+                    undefined,
+                    new Date()
+                  );
+                  await workflowRepository.addHistory(
+                    workflowId,
+                    WORKFLOW_EVENTS.STEP_CANCELLED,
+                    `Step "${stepId}" cancelled due to dependency cancellation.`,
+                    stepId
+                  );
+                }
+              }
+
+              // Re-tick to process newly ready branches or workflow completion
+              return this.doTick(workflowId);
+            }
+          }
+
+          // Schedule the step job
+          try {
+            await WorkflowScheduler.scheduleStep(workflow, step);
+            // Update workflow currentStep with the scheduled step name/id
+            const updatedWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING, step.stepId);
+            EventPublisher.publishWorkflowEvent('workflow.updated', updatedWf);
+          } catch (error) {
+            logger.error(
+              `[WorkflowEngine] Failed to schedule step "${step.stepId}" of Workflow ${workflowId}: ${(error as Error).message}`
             );
-
-            // Mark step as CANCELLED (skipped)
-            await workflowRepository.updateStepStatus(
-              step.id,
-              WorkflowStatus.CANCELLED,
-              undefined,
-              new Date()
-            );
-
+            // Mark step as failed
+            await workflowRepository.updateStepStatus(step.id, WorkflowStatus.FAILED, undefined, new Date());
             await workflowRepository.addHistory(
               workflowId,
-              WORKFLOW_EVENTS.STEP_CANCELLED,
-              `Step "${step.stepId}" skipped because its condition "${condition}" was not met.`,
+              WORKFLOW_EVENTS.STEP_FAILED,
+              `Step "${step.stepId}" execution failed: ${(error as Error).message}`,
               step.stepId
             );
-
-            // Resolve cascading cancellations for downstream dependencies
-            const cascadingStepIds = DependencyResolver.resolveCascadingCancellations(steps, [step.stepId]);
-            for (const stepId of cascadingStepIds) {
-              const dbStep = steps.find((s) => s.stepId === stepId);
-              if (dbStep) {
-                await workflowRepository.updateStepStatus(
-                  dbStep.id,
-                  WorkflowStatus.CANCELLED,
-                  undefined,
-                  new Date()
-                );
-                await workflowRepository.addHistory(
-                  workflowId,
-                  WORKFLOW_EVENTS.STEP_CANCELLED,
-                  `Step "${stepId}" cancelled due to dependency cancellation.`,
-                  stepId
-                );
-              }
-            }
-
-            // Re-tick to process newly ready branches or workflow completion
+            // Re-tick to process failure state transitions
             return this.doTick(workflowId);
           }
         }
+      }
 
-        // Schedule the step job
-        try {
-          await WorkflowScheduler.scheduleStep(workflow, step);
-          // Update workflow currentStep with the scheduled step name/id
-          const updatedWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.RUNNING, step.stepId);
-          EventPublisher.publishWorkflowEvent('workflow.updated', updatedWf);
-        } catch (error) {
-          logger.error(
-            `[WorkflowEngine] Failed to schedule step "${step.stepId}" of Workflow ${workflowId}: ${(error as Error).message}`
-          );
-          // Mark step as failed
-          await workflowRepository.updateStepStatus(step.id, WorkflowStatus.FAILED, undefined, new Date());
+      // 2. Refresh steps list from database for accurate progress and completion check
+      const refreshedSteps = await prisma.workflowStep.findMany({
+        where: { workflowId },
+      });
+
+      const finishedSteps = refreshedSteps.filter(
+        (s) =>
+          s.status === WorkflowStatus.COMPLETED ||
+          s.status === WorkflowStatus.FAILED ||
+          s.status === WorkflowStatus.CANCELLED
+      );
+
+      // Update progress
+      const progress = Math.round((finishedSteps.length / totalSteps) * 100);
+      const updatedWf = await workflowRepository.updateProgress(workflowId, progress);
+      EventPublisher.publishWorkflowEvent('workflow.updated', updatedWf);
+
+      // 3. Check for workflow completion
+      if (finishedSteps.length === totalSteps) {
+        const hasFailedSteps = refreshedSteps.some((s) => s.status === WorkflowStatus.FAILED);
+
+        if (hasFailedSteps) {
+          // Transition workflow to FAILED
+          const finalWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.FAILED, null);
+          EventPublisher.publishWorkflowEvent('workflow.failed', finalWf, new Error('Workflow failed due to step failures.'));
           await workflowRepository.addHistory(
             workflowId,
-            WORKFLOW_EVENTS.STEP_FAILED,
-            `Step "${step.stepId}" execution failed: ${(error as Error).message}`,
-            step.stepId
+            WORKFLOW_EVENTS.FAILED,
+            `Workflow "${workflow.name}" failed.`
           );
-          // Re-tick to process failure state transitions
-          return this.doTick(workflowId);
+        } else {
+          // Transition workflow to COMPLETED
+          const finalWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.COMPLETED, null);
+          EventPublisher.publishWorkflowEvent('workflow.completed', finalWf);
+          await workflowRepository.addHistory(
+            workflowId,
+            WORKFLOW_EVENTS.COMPLETED,
+            `Workflow "${workflow.name}" completed successfully.`
+          );
         }
       }
-    }
-
-    // 2. Refresh steps list from database for accurate progress and completion check
-    const refreshedSteps = await prisma.workflowStep.findMany({
-      where: { workflowId },
     });
-
-    const finishedSteps = refreshedSteps.filter(
-      (s) =>
-        s.status === WorkflowStatus.COMPLETED ||
-        s.status === WorkflowStatus.FAILED ||
-        s.status === WorkflowStatus.CANCELLED
-    );
-
-    // Update progress
-    const progress = Math.round((finishedSteps.length / totalSteps) * 100);
-    const updatedWf = await workflowRepository.updateProgress(workflowId, progress);
-    EventPublisher.publishWorkflowEvent('workflow.updated', updatedWf);
-
-    // 3. Check for workflow completion
-    if (finishedSteps.length === totalSteps) {
-      const hasFailedSteps = refreshedSteps.some((s) => s.status === WorkflowStatus.FAILED);
-
-      if (hasFailedSteps) {
-        // Transition workflow to FAILED
-        const finalWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.FAILED, null);
-        EventPublisher.publishWorkflowEvent('workflow.failed', finalWf, new Error('Workflow failed due to step failures.'));
-        await workflowRepository.addHistory(
-          workflowId,
-          WORKFLOW_EVENTS.FAILED,
-          `Workflow "${workflow.name}" failed.`
-        );
-      } else {
-        // Transition workflow to COMPLETED
-        const finalWf = await workflowRepository.updateStatus(workflowId, WorkflowStatus.COMPLETED, null);
-        EventPublisher.publishWorkflowEvent('workflow.completed', finalWf);
-        await workflowRepository.addHistory(
-          workflowId,
-          WORKFLOW_EVENTS.COMPLETED,
-          `Workflow "${workflow.name}" completed successfully.`
-        );
-      }
-    }
   }
 
   /**

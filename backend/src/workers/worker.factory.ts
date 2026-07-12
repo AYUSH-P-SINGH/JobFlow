@@ -3,6 +3,7 @@ import { QueueNames } from '../queues/queue.constants.js';
 import { createRedisConnection } from '../config/redis.js';
 import { ExecutionService } from '../modules/jobs/execution.service.js';
 import { logger } from '../common/logger/logger.js';
+import { WorkerHealthTracker } from './worker.health.js';
 
 let jobWorker: Worker | null = null;
 
@@ -10,6 +11,9 @@ export function createJobWorker(): Worker {
   if (jobWorker) {
     return jobWorker;
   }
+
+  const concurrency = 5;
+  WorkerHealthTracker.getInstance().setConcurrency(concurrency);
 
   jobWorker = new Worker(
     QueueNames.JOB_QUEUE,
@@ -21,7 +25,7 @@ export function createJobWorker(): Worker {
     },
     {
       connection: createRedisConnection('worker:job-processing') as any,
-      concurrency: 5,
+      concurrency,
     }
   );
 
