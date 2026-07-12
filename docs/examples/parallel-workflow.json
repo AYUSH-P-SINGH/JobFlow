@@ -1,0 +1,55 @@
+{
+  "name": "Parallel Pipeline Example",
+  "steps": [
+    {
+      "stepId": "fetch-source",
+      "jobType": "IMAGE",
+      "priority": "HIGH",
+      "payload": {
+        "imageUrl": "https://storage.jobflow.com/raw/raw-image.jpg",
+        "operation": "rotate"
+      },
+      "dependsOn": []
+    },
+    {
+      "stepId": "resize-small",
+      "jobType": "IMAGE",
+      "priority": "MEDIUM",
+      "payload": {
+        "imageUrl": "https://storage.jobflow.com/raw/raw-image.jpg",
+        "operation": "resize"
+      },
+      "dependsOn": ["fetch-source"]
+    },
+    {
+      "stepId": "resize-medium",
+      "jobType": "IMAGE",
+      "priority": "MEDIUM",
+      "payload": {
+        "imageUrl": "https://storage.jobflow.com/raw/raw-image.jpg",
+        "operation": "resize"
+      },
+      "dependsOn": ["fetch-source"]
+    },
+    {
+      "stepId": "resize-large",
+      "jobType": "IMAGE",
+      "priority": "MEDIUM",
+      "payload": {
+        "imageUrl": "https://storage.jobflow.com/raw/raw-image.jpg",
+        "operation": "resize"
+      },
+      "dependsOn": ["fetch-source"]
+    },
+    {
+      "stepId": "zip-assets",
+      "jobType": "REPORT",
+      "priority": "LOW",
+      "payload": {
+        "reportType": "image-archive-stats",
+        "format": "zip"
+      },
+      "dependsOn": ["resize-small", "resize-medium", "resize-large"]
+    }
+  ]
+}
