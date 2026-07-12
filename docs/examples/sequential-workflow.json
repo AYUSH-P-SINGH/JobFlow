@@ -1,0 +1,36 @@
+{
+  "name": "Sequential Pipeline Example",
+  "steps": [
+    {
+      "stepId": "upload-data",
+      "jobType": "IMAGE",
+      "priority": "HIGH",
+      "payload": {
+        "imageUrl": "https://storage.com/raw/data.csv",
+        "operation": "grayscale"
+      },
+      "dependsOn": []
+    },
+    {
+      "stepId": "validate-data",
+      "jobType": "REPORT",
+      "priority": "MEDIUM",
+      "payload": {
+        "reportType": "csv-check",
+        "format": "csv"
+      },
+      "dependsOn": ["upload-data"]
+    },
+    {
+      "stepId": "notify-success",
+      "jobType": "EMAIL",
+      "priority": "LOW",
+      "payload": {
+        "to": "admin@example.com",
+        "subject": "Data Upload and Validation Complete",
+        "body": "The file was successfully uploaded and validated."
+      },
+      "dependsOn": ["validate-data"]
+    }
+  ]
+}
