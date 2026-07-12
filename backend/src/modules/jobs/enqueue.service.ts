@@ -4,6 +4,7 @@ import { PriorityMap } from '../../queues/queue.constants.js';
 import { logger } from '../../common/logger/logger.js';
 import type { Job } from './job.types.js';
 import { getCorrelationId } from '../../common/tracing/context.js';
+import { context, propagation } from '@opentelemetry/api';
 
 /**
  * Minimal payload pushed to the BullMQ queue.
@@ -15,6 +16,7 @@ export interface JobQueuePayload {
   type: string;
   priority: string;
   correlationId?: string;
+  traceContext?: Record<string, string>;
 }
 
 export class EnqueueService {
@@ -39,6 +41,11 @@ export class EnqueueService {
     if (correlationId) {
       payload.correlationId = correlationId;
     }
+
+    // Inject active OpenTelemetry context
+    const traceContext: Record<string, string> = {};
+    propagation.inject(context.active(), traceContext);
+    payload.traceContext = traceContext;
 
     // Calculate delay for scheduled jobs
     let delay: number | undefined;

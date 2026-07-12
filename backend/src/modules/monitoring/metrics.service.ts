@@ -64,13 +64,132 @@ import client from 'prom-client';
   });
   register.registerMetric(jobQueueDelay);
 
+  // Phase 15 Observability improvements
+  const workflowStartedCounter = new client.Counter({
+    name: 'workflow_started_total',
+    help: 'Total workflows started',
+  });
+  register.registerMetric(workflowStartedCounter);
+
+  const workflowCompletedCounter = new client.Counter({
+    name: 'workflow_completed_total',
+    help: 'Total workflows completed successfully',
+  });
+  register.registerMetric(workflowCompletedCounter);
+
+  const workflowFailedCounter = new client.Counter({
+    name: 'workflow_failed_total',
+    help: 'Total workflows failed',
+  });
+  register.registerMetric(workflowFailedCounter);
+
+  const jobsTotalCounter = new client.Counter({
+    name: 'jobflow_jobs_total',
+    help: 'Total job executions started or completed',
+    labelNames: ['type', 'status'],
+  });
+  register.registerMetric(jobsTotalCounter);
+
+  const jobsCompletedCounter = new client.Counter({
+    name: 'jobflow_jobs_completed',
+    help: 'Total jobs completed',
+    labelNames: ['type'],
+  });
+  register.registerMetric(jobsCompletedCounter);
+
+  const jobsFailedCounter = new client.Counter({
+    name: 'jobflow_jobs_failed',
+    help: 'Total jobs failed',
+    labelNames: ['type'],
+  });
+  register.registerMetric(jobsFailedCounter);
+
+  const workflowDurationHistogram = new client.Histogram({
+    name: 'workflow_duration',
+    help: 'Workflow execution duration in seconds',
+    labelNames: ['status'],
+    buckets: [1, 5, 10, 30, 60, 120, 300],
+  });
+  register.registerMetric(workflowDurationHistogram);
+
+  const queueWaitTimeHistogram = new client.Histogram({
+    name: 'queue_wait_time',
+    help: 'Time jobs waited in queue in seconds',
+    labelNames: ['type'],
+    buckets: [0.1, 0.5, 1, 2, 5, 10, 30],
+  });
+  register.registerMetric(queueWaitTimeHistogram);
+
+  const workerUtilizationGauge = new client.Gauge({
+    name: 'worker_utilization',
+    help: 'Worker capacity utilization percentage (0 to 1)',
+    labelNames: ['workerId'],
+  });
+  register.registerMetric(workerUtilizationGauge);
+
+  const queueWaitingGauge = new client.Gauge({
+    name: 'queue_waiting',
+    help: 'Number of jobs currently waiting in the queue',
+  });
+  register.registerMetric(queueWaitingGauge);
+
+  const queueActiveGauge = new client.Gauge({
+    name: 'queue_active',
+    help: 'Number of jobs currently active in the queue',
+  });
+  register.registerMetric(queueActiveGauge);
+
+  const queueDelayedGauge = new client.Gauge({
+    name: 'queue_delayed',
+    help: 'Number of jobs currently delayed in the queue',
+  });
+  register.registerMetric(queueDelayedGauge);
+
+  const queueFailedGauge = new client.Gauge({
+    name: 'queue_failed',
+    help: 'Number of jobs currently failed in the queue',
+  });
+  register.registerMetric(queueFailedGauge);
+
   export class MetricsService {
     /**
      * Initializes metric event listeners to count completions/failures.
      */
     public static initSubscriptions(): void {
+      eventBus.subscribe('workflow.started', () => {
+        workflowStartedCounter.inc();
+      });
+
+      eventBus.subscribe('workflow.completed', ({ workflow }) => {
+        workflowCompletedCounter.inc();
+        workflowExecutionCounter.inc({ status: 'completed' });
+        if (workflow && workflow.createdAt && workflow.updatedAt) {
+          const duration = (new Date(workflow.updatedAt).getTime() - new Date(workflow.createdAt).getTime()) / 1000;
+          workflowDurationHistogram.observe({ status: 'completed' }, duration);
+        }
+      });
+
+      eventBus.subscribe('workflow.failed', ({ workflow }) => {
+        workflowFailedCounter.inc();
+        workflowExecutionCounter.inc({ status: 'failed' });
+        if (workflow && workflow.createdAt && workflow.updatedAt) {
+          const duration = (new Date(workflow.updatedAt).getTime() - new Date(workflow.createdAt).getTime()) / 1000;
+          workflowDurationHistogram.observe({ status: 'failed' }, duration);
+        }
+      });
+
+      eventBus.subscribe('job.started', ({ job }) => {
+        jobsTotalCounter.inc({ type: job.type, status: 'running' });
+        if (job.startedAt && job.createdAt) {
+          const delay = (new Date(job.startedAt).getTime() - new Date(job.createdAt).getTime()) / 1000;
+          queueWaitTimeHistogram.observe({ type: job.type }, delay);
+        }
+      });
+
       eventBus.subscribe('job.completed', ({ job }) => {
         completedJobsCounter.inc({ type: job.type });
+        jobsTotalCounter.inc({ type: job.type, status: 'completed' });
+        jobsCompletedCounter.inc({ type: job.type });
         if (job.startedAt && job.createdAt) {
           const delay = (new Date(job.startedAt).getTime() - new Date(job.createdAt).getTime()) / 1000;
           jobQueueDelay.observe({ type: job.type }, delay);
@@ -79,14 +198,8 @@ import client from 'prom-client';
 
       eventBus.subscribe('job.failed', ({ job }) => {
         failedJobsCounter.inc({ type: job.type });
-      });
-
-      eventBus.subscribe('workflow.completed', () => {
-        workflowExecutionCounter.inc({ status: 'completed' });
-      });
-
-      eventBus.subscribe('workflow.failed', () => {
-        workflowExecutionCounter.inc({ status: 'failed' });
+        jobsTotalCounter.inc({ type: job.type, status: 'failed' });
+        jobsFailedCounter.inc({ type: job.type });
       });
     }
 
@@ -124,6 +237,11 @@ import client from 'prom-client';
         queueSizeGauge.set({ status: 'delayed' }, delayed);
         queueSizeGauge.set({ status: 'completed' }, completed);
         queueSizeGauge.set({ status: 'failed' }, failed);
+
+        queueWaitingGauge.set(waiting);
+        queueActiveGauge.set(active);
+        queueDelayedGauge.set(delayed);
+        queueFailedGauge.set(failed);
       } catch (err) {
         // Queue may not be ready
       }
@@ -132,6 +250,7 @@ import client from 'prom-client';
         const health = WorkerHealthTracker.getInstance().getHealthData();
         const memory = process.memoryUsage();
         workerMemoryGauge.set({ workerId: health.workerId }, memory.rss);
+        workerUtilizationGauge.set({ workerId: health.workerId }, health.utilization);
       } catch (err) {
         // Health tracker not ready
       }

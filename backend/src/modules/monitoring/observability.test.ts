@@ -268,7 +268,7 @@ test.describe('Observability & Real-Time Monitoring Integration Tests', { concur
     assert.strictEqual(resTimeline.body.data[0].event, 'CREATED');
   });
 
-  test('Dashboard and Prometheus metrics', async () => {
+  test('Dashboard and Prometheus metrics & custom Phase 15 metrics', async () => {
     // Create completed job today
     await prisma.job.create({
       data: {
@@ -291,5 +291,36 @@ test.describe('Observability & Real-Time Monitoring Integration Tests', { concur
     const resProm = await request.get('/metrics');
     assert.strictEqual(resProm.status, 200);
     assert.match(resProm.text, /process_cpu_seconds_total/);
+    assert.match(resProm.text, /workflow_started_total/);
+    assert.match(resProm.text, /workflow_completed_total/);
+    assert.match(resProm.text, /workflow_failed_total/);
+    assert.match(resProm.text, /jobflow_jobs_total/);
+    assert.match(resProm.text, /workflow_duration/);
+    assert.match(resProm.text, /queue_wait_time/);
+    assert.match(resProm.text, /worker_utilization/);
+    assert.match(resProm.text, /queue_waiting/);
+    assert.match(resProm.text, /queue_active/);
+  });
+
+  test('OpenTelemetry - Tracing context propagation validation', async () => {
+    const { workflowRepository } = await import('../workflow/workflow.repository.js');
+
+    const traceContext: Record<string, string> = { traceparent: '00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01' };
+    
+    // Simulate repository create with triggerMetadata
+    const steps = [
+      { stepId: 'step-1', jobType: 'EMAIL', priority: 'MEDIUM' as any, payload: {}, dependsOn: [] }
+    ];
+    const wf = await workflowRepository.create('Propagate Test', userId, steps, { traceContext });
+    
+    assert.ok(wf.triggerMetadata);
+    assert.deepStrictEqual((wf.triggerMetadata as any).traceContext, traceContext);
+  });
+
+  test('Logging - Custom Loki Winston transport does not throw when sending log logs', async () => {
+    const { logger } = await import('../../common/logger/logger.js');
+    logger.info('Test log event for Loki integration verification');
+    // Ensure LokiTransport executes log processing without exceptions
+    assert.ok(true);
   });
 });

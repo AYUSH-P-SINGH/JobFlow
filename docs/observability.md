@@ -104,3 +104,49 @@ A Prometheus-compatible metrics exporter is exposed at `GET /metrics`. It export
 * `jobflow_jobs_failed_total` (counter, labeled by `type`)
 * `jobflow_queue_size` (gauge, labeled by `status`)
 * `worker_memory_usage` (gauge, labeled by `workerId`)
+
+---
+
+## 7. Extended Production Observability (Phase 15 Improvements)
+
+Phase 15 introduced enterprise-grade enhancements to the metrics registry, distributed tracing propagation, centralized logging configuration, and automated SLO alert rules.
+
+### Custom Prometheus Metrics Dictionary
+
+The `/metrics` endpoint on both the API and Worker processes exposes the following new telemetry indicators:
+* `workflow_started_total` (counter): Total count of workflow executions initiated.
+* `workflow_completed_total` (counter): Total count of successfully completed workflows.
+* `workflow_failed_total` (counter): Total count of failed workflows.
+* `jobflow_jobs_total` (counter, labels `type`, `status`): Tracking of all job attempts, including transient status changes.
+* `jobflow_jobs_completed` (counter, label `type`): Cumulative completed jobs.
+* `jobflow_jobs_failed` (counter, label `type`): Cumulative failed jobs.
+* `workflow_duration` (histogram, label `status`): Histogram of workflow durations in seconds.
+* `queue_wait_time` (histogram, label `type`): Histogram of seconds jobs wait in the queue before transition to RUNNING.
+* `worker_utilization` (gauge, label `workerId`): Worker capacity utilization calculated dynamically as `activeJobsCount / concurrency`.
+* Queue-specific counts:
+  * `queue_waiting` (gauge): Current waiting queue backlog.
+  * `queue_active` (gauge): Current active jobs.
+  * `queue_delayed` (gauge): Current delayed jobs.
+  * `queue_failed` (gauge): Current failed jobs.
+
+### End-to-End Tracing Context Propagation
+
+Traces are propagated seamlessly across service and process boundaries to maintain a **single Trace ID**:
+1. **API Web Request**: Receives the request and initiates an active span.
+2. **Workflow Creation**: Serializes the active OpenTelemetry span context as `traceContext` inside the workflow's database `triggerMetadata`.
+3. **Workflow Engine evaluation**: The background tick extracts the context from the DB and runs the scheduler inside a nested `context.with` context block.
+4. **BullMQ payload injection**: The scheduler serializes the active context and passes it into the BullMQ job data payload.
+5. **Background worker execution**: The worker extracts the context from the job payload and executes the job handler within a child span of that context.
+
+### Winston-Loki Logging Integration
+
+Logs are forwarded to Loki at `http://localhost:3100/loki/api/v1/push` using a custom, lightweight, low-overhead Winston transport (`LokiTransport`) that pushes log lines with structured label metadata (`job`, `level`) and correlation IDs.
+
+### Prometheus SLO Alert Rules
+
+Prometheus evaluates alerting thresholds defined in `/etc/prometheus/alert.rules.yml`:
+* **JobQueueBacklogHigh**: Fires a `critical` alert if `queue_waiting > 1000` for more than 1 minute.
+* **WorkflowFailureRateHigh**: Fires a `critical` alert if the workflow failure rate over 5 minutes exceeds 0.1%.
+* **ApiLatencyHigh**: Fires a `warning` alert if the 99th percentile of API request latency exceeds 200ms.
+* **JobQueueDelayHigh**: Fires a `warning` alert if 95% of jobs spend more than 5 seconds waiting in the queue.
+* **WorkerProcessCrash**: Fires a `critical` alert if any worker process scrape target is down.

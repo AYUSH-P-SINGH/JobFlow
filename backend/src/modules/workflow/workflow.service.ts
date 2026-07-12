@@ -18,6 +18,7 @@ import { logger } from '../../common/logger/logger.js';
 import { getJobQueue } from '../../queues/job.queue.js';
 import prisma from '../../prisma.js';
 import { EventPublisher } from '../../events/event.publisher.js';
+import { context, propagation } from '@opentelemetry/api';
 
 export class WorkflowService {
   /**
@@ -40,7 +41,13 @@ export class WorkflowService {
     // Enforce tenant workflow quotas
     await QuotaService.checkWorkflowLimits(tenantId);
 
-    const workflow = await workflowRepository.create(name, userId, steps);
+    // Inject active OpenTelemetry context
+    const traceContext: Record<string, string> = {};
+    propagation.inject(context.active(), traceContext);
+
+    const workflow = await workflowRepository.create(name, userId, steps, {
+      traceContext,
+    });
 
     await workflowRepository.addHistory(
       workflow.id,

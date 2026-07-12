@@ -11,7 +11,7 @@ import {
 } from './workflow.types.js';
 
 export interface IWorkflowRepository {
-  create(name: string, userId: string, steps: CreateWorkflowStepInput[]): Promise<Workflow & { steps: WorkflowStep[] }>;
+  create(name: string, userId: string, steps: CreateWorkflowStepInput[], triggerMetadata?: any): Promise<Workflow & { steps: WorkflowStep[] }>;
   findById(id: string): Promise<(Workflow & { steps: WorkflowStep[]; histories: WorkflowHistory[] }) | null>;
   findAll(
     filters: WorkflowFilter,
@@ -39,7 +39,7 @@ export interface IWorkflowRepository {
 }
 
 export class PrismaWorkflowRepository implements IWorkflowRepository {
-  async create(name: string, userId: string, steps: CreateWorkflowStepInput[]): Promise<Workflow & { steps: WorkflowStep[] }> {
+  async create(name: string, userId: string, steps: CreateWorkflowStepInput[], triggerMetadata?: any): Promise<Workflow & { steps: WorkflowStep[] }> {
     return prisma.$transaction(async (tx) => {
       const workflow = await tx.workflow.create({
         data: {
@@ -47,6 +47,7 @@ export class PrismaWorkflowRepository implements IWorkflowRepository {
           userId,
           status: WorkflowStatus.PENDING,
           progress: 0.0,
+          triggerMetadata: triggerMetadata || undefined,
         },
       });
 

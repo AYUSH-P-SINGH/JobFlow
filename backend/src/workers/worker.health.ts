@@ -17,6 +17,8 @@ export class WorkerHealthTracker {
 
   public readonly workerId: string;
   private currentJobId: string | null = null;
+  private activeJobIds = new Set<string>();
+  private concurrency = 5;
   private metrics: WorkerMetrics = { totalProcessed: 0, successes: 0, failures: 0 };
   private lastJob: LastJobDetails | null = null;
 
@@ -31,12 +33,30 @@ export class WorkerHealthTracker {
     return WorkerHealthTracker.instance;
   }
 
+  public setConcurrency(concurrency: number): void {
+    this.concurrency = concurrency;
+  }
+
+  public getConcurrency(): number {
+    return this.concurrency;
+  }
+
+  public getUtilization(): number {
+    return this.concurrency > 0 ? this.activeJobIds.size / this.concurrency : 0;
+  }
+
+  public getActiveJobsCount(): number {
+    return this.activeJobIds.size;
+  }
+
   public startJob(jobId: string) {
+    this.activeJobIds.add(jobId);
     this.currentJobId = jobId;
   }
 
   public completeJob(jobId: string) {
-    this.currentJobId = null;
+    this.activeJobIds.delete(jobId);
+    this.currentJobId = this.activeJobIds.values().next().value || null;
     this.metrics.totalProcessed++;
     this.metrics.successes++;
     this.lastJob = {
@@ -47,7 +67,8 @@ export class WorkerHealthTracker {
   }
 
   public failJob(jobId: string) {
-    this.currentJobId = null;
+    this.activeJobIds.delete(jobId);
+    this.currentJobId = this.activeJobIds.values().next().value || null;
     this.metrics.totalProcessed++;
     this.metrics.failures++;
     this.lastJob = {
@@ -68,6 +89,9 @@ export class WorkerHealthTracker {
         heapUsed: `${Math.round(memory.heapUsed / 1024 / 1024)} MB`,
       },
       currentJobId: this.currentJobId,
+      activeJobsCount: this.activeJobIds.size,
+      concurrency: this.concurrency,
+      utilization: this.getUtilization(),
       metrics: { ...this.metrics },
       lastJob: this.lastJob,
     };
