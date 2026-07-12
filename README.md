@@ -6,11 +6,13 @@ JobFlow is a high-performance distributed task processing and workflow orchestra
 
 ---
 
-## 🗺️ Project State: Phase 8 Completed
+## 🗺️ Project State: Phase 14 Completed
 
 JobFlow has evolved into a production-grade distributed orchestration platform:
-* **Workflow Engine & Orchestrator (Phase 7)**: Executes DAG-based workflows, detects cycles, processes step dependencies, evaluates branch conditions (e.g. `steps.<stepId>.status === 'COMPLETED'`), and handles cascade cancellation of downstream execution paths. Includes templates for Lead Nurturing, Image Optimization, and Notification campaigns.
-* **Real-Time Gateway (Phase 8)**: Socket.IO server utilizing JWT authentication. Separates connections into personal user rooms (`room:user:<id>`), detailed workflow timeline rooms (`room:workflow:<id>`), and system operator rooms (`room:admins`). Automatically replays cached events upon reconnection and throttles progress updates to 200ms.
+* **Workflow Orchestration Engine (Phase 13)**: Coordinates complex Directed Acyclic Graph (DAG) pipelines containing sequential, parallel, and conditional execution paths.
+  * Details: [Engine Architecture](docs/workflow-engine.md) | [State Machine Lifecycle](docs/workflow-lifecycle.md) | [DAG Dependency Resolution](docs/dependency-resolution.md) | [Performance Profile](docs/performance.md)
+* **Real-Time Dashboard & Event Streaming (Phase 14)**: Socket.IO server utilizing JWT authentication. Separates connections into personal user rooms (`room:user:<id>`), detailed workflow timeline rooms (`room:workflow:<id>`), and system operator rooms (`room:admins`). Automatically replays cached events upon reconnection and throttles progress updates to 200ms. Includes REST endpoints for operational analytics.
+  * Details: [Socket Gateway Architecture](docs/socket-architecture.md) | [Event Stream Pipeline](docs/event-flow.md) | [Dashboard API Reference](docs/dashboard-api.md)
 * **Persistent Notifications (Phase 8)**: Database-backed system alerts categorizing failures, retries, and completions. Exposes list, mark read, and delete endpoints.
 * **System Audit Logging (Phase 8)**: Tracks administrative actions (e.g. creations, retries, cancellations, logins, worker check-ins) across users and resources. Exposes operator queries.
 * **Chronological Timelines (Phase 8)**: Aggregates workflow history logs into sequence timelines.
