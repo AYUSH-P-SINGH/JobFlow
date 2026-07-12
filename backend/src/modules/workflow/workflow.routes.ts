@@ -16,7 +16,8 @@ router.use(authMiddleware);
 
 // Template and Versioning Routes
 router.post('/templates', TemplateController.createTemplate);
-router.get('/templates', TemplateController.listTemplates);
+router.get('/templates', WorkflowController.getTemplates);
+router.get('/templates/custom', TemplateController.listTemplates);
 router.post('/templates/import', TemplateController.importTemplate);
 router.post('/templates/:id/versions', TemplateController.createVersion);
 router.post('/templates/:id/run', TemplateController.runTemplate);
