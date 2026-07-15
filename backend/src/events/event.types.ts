@@ -31,6 +31,29 @@ export type WorkerStatsPayload = {
   correlationId?: string;
 };
 
+// Phase 16: Worker lifecycle event payloads
+export type WorkerRegisteredPayload = {
+  workerId: string;
+  hostname: string;
+  supportedJobs: string[];
+};
+
+export type WorkerHeartbeatPayload = {
+  workerId: string;
+  runningJobs: number;
+  currentLoad: number;
+};
+
+export type WorkerOfflinePayload = {
+  workerId: string;
+  reason: string;
+};
+
+export type WorkerDrainedPayload = {
+  workerId: string;
+  reason: string;
+};
+
 export interface EventMap {
   'workflow.started': WorkflowEventPayload;
   'workflow.updated': WorkflowEventPayload;
@@ -45,6 +68,12 @@ export interface EventMap {
   'job.cancelled': JobEventPayload;
 
   'worker.stats_reported': WorkerStatsPayload;
+
+  // Phase 16: Worker lifecycle events
+  'worker.registered': WorkerRegisteredPayload;
+  'worker.heartbeat': WorkerHeartbeatPayload;
+  'worker.offline': WorkerOfflinePayload;
+  'worker.drained': WorkerDrainedPayload;
 }
 
 export type EventType = keyof EventMap;
