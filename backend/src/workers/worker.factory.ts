@@ -6,7 +6,12 @@ import { logger } from '../common/logger/logger.js';
 import { WorkerHealthTracker } from './worker.health.js';
 
 let jobWorker: Worker | null = null;
+const specializedWorkers: Map<string, Worker> = new Map();
 
+/**
+ * Creates a BullMQ Worker for the default job processing queue.
+ * Backward-compatible: works exactly as before Phase 16.
+ */
 export function createJobWorker(): Worker {
   if (jobWorker) {
     return jobWorker;
@@ -37,8 +42,49 @@ export function createJobWorker(): Worker {
   return jobWorker;
 }
 
+/**
+ * Creates a BullMQ Worker for a specialized queue.
+ * Used by Phase 16 intelligent worker management — workers subscribe
+ * to queues matching their capabilities.
+ */
+export function createSpecializedWorker(
+  queueName: string,
+  concurrency: number = 5
+): Worker {
+  if (specializedWorkers.has(queueName)) {
+    return specializedWorkers.get(queueName)!;
+  }
+
+  const tracker = WorkerHealthTracker.getInstance();
+
+  const worker = new Worker(
+    queueName,
+    async (job) => {
+      const { jobId } = job.data;
+      logger.info(`[Specialized Worker] Picked up Job ${jobId} [Type: ${job.name}] from queue: ${queueName}`);
+      await ExecutionService.executeJob(jobId, job);
+    },
+    {
+      connection: createRedisConnection(`worker:${queueName}`) as any,
+      concurrency,
+    }
+  );
+
+  worker.on('error', (err) => {
+    logger.error(`[Specialized Worker:${queueName}] Internal error:`, err);
+  });
+
+  specializedWorkers.set(queueName, worker);
+  logger.info(`BullMQ Specialized Worker initialized for queue: ${queueName} (concurrency: ${concurrency})`);
+  return worker;
+}
+
 export function getJobWorker(): Worker | null {
   return jobWorker;
+}
+
+export function getSpecializedWorkers(): Map<string, Worker> {
+  return specializedWorkers;
 }
 
 export async function closeJobWorker(): Promise<void> {
@@ -47,4 +93,20 @@ export async function closeJobWorker(): Promise<void> {
     jobWorker = null;
     logger.info('BullMQ Worker closed');
   }
+}
+
+/**
+ * Close all specialized workers gracefully.
+ */
+export async function closeSpecializedWorkers(): Promise<void> {
+  const closePromises: Promise<void>[] = [];
+
+  for (const [queueName, worker] of specializedWorkers.entries()) {
+    logger.info(`Closing specialized worker for queue: ${queueName}`);
+    closePromises.push(worker.close());
+  }
+
+  await Promise.all(closePromises);
+  specializedWorkers.clear();
+  logger.info(`All specialized workers closed (${closePromises.length} total)`);
 }

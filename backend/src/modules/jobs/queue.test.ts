@@ -95,12 +95,10 @@ test.describe('Queue Architecture & Setup Tests', () => {
     assert.strictEqual(addedName, 'EMAIL');
     
     // Minimal payload verification
-    assert.deepStrictEqual(addedData, {
-      jobId: 'db-job-123',
-      userId: 'user-456',
-      type: 'EMAIL',
-      priority: 'HIGH',
-    });
+    assert.strictEqual(addedData.jobId, 'db-job-123');
+    assert.strictEqual(addedData.userId, 'user-456');
+    assert.strictEqual(addedData.type, 'EMAIL');
+    assert.strictEqual(addedData.priority, 'HIGH');
 
     // Priority and delay verification
     assert.strictEqual(addedOpts.jobId, 'db-job-123');

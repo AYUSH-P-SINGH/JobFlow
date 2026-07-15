@@ -9,6 +9,16 @@ export enum QueueNames {
   EMAIL_QUEUE = 'email',
   WORKFLOW_QUEUE = 'workflow',
   SCHEDULER_QUEUE = 'scheduler',
+
+  // Phase 16: Specialized job processing queues
+  EMAIL_PROCESSING = 'email-processing',
+  PDF_PROCESSING = 'pdf-processing',
+  IMAGE_PROCESSING = 'image-processing',
+  AI_PROCESSING = 'ai-processing',
+  REPORT_PROCESSING = 'report-processing',
+  NOTIFICATION_PROCESSING = 'notification-processing',
+  VIDEO_PROCESSING = 'video-processing',
+  DEFAULT_PROCESSING = 'default-processing',
 }
 
 /**

@@ -19,6 +19,7 @@ import { GraphQLGateway } from '../graphql/graphql.gateway.js';
 import marketplaceRoutes from '../marketplace/marketplace.routes.js';
 import portalRoutes from '../developer-portal/portal.routes.js';
 import analyticsRoutes from '../analytics/analytics.routes.js';
+import workerRoutes from '../modules/workers/worker.routes.js';
 import { authMiddleware } from '../common/middleware/auth.middleware.js';
 
 const router = Router();
@@ -75,6 +76,9 @@ router.use('/api/v1/portal', portalRoutes);
 
 // Analytics APIs
 router.use('/api/v1/analytics', analyticsRoutes);
+
+// Phase 16: Worker Management APIs
+router.use('/api/v1/workers', workerRoutes);
 
 // Recovery Dashboard UI
 router.get('/admin/recovery', RecoveryDashboard.serve);

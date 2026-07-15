@@ -30,6 +30,15 @@ initJobQueue();
 initQueueEvents();
 logger.info('BullMQ queues and event listeners initialized');
 
+// Phase 16: Initialize Worker Registry, Discovery Service, and Health Monitor
+const { WorkerRegistry } = await import('./modules/workers/scheduler/worker.registry.js');
+const { WorkerDiscovery } = await import('./modules/workers/scheduler/worker.discovery.js');
+const { WorkerHealthMonitor } = await import('./modules/workers/scheduler/worker.health.monitor.js');
+
+await WorkerRegistry.initialize();
+WorkerDiscovery.start();
+logger.info('Worker Registry and Discovery Service initialized');
+
 // Synchronize database cron schedules to BullMQ
 const { CronService } = await import('./modules/scheduler/cron.service.js');
 await CronService.initSchedules();
@@ -64,6 +73,11 @@ const gracefulShutdown = (signal: string) => {
 
     // Close Socket.IO first, then queue event listeners, then queues, then Redis, then DB
     await closeSocketServer();
+
+    // Phase 16: Shut down worker management services
+    WorkerDiscovery.stop();
+    WorkerRegistry.shutdown();
+
     await closeQueueEvents();
     await closeAllQueues();
 
