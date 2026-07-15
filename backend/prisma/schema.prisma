@@ -372,3 +372,37 @@ model RecoveryLog {
 
   @@map("recovery_logs")
 }
+
+// ─── Phase 16: Intelligent Worker Management ────────────────────────────────
+
+enum WorkerStatus {
+  STARTING
+  READY
+  BUSY
+  DRAINING
+  OFFLINE
+}
+
+model WorkerNode {
+  id              String       @id @default(uuid())
+  hostname        String
+  port            Int          @default(5001)
+  status          WorkerStatus @default(STARTING)
+  region          String       @default("default")
+  tags            Json         @default("[]")
+  cpu             Int          @default(1)
+  memory          Int          @default(512)
+  gpu             Boolean      @default(false)
+  supportedJobs   Json         @default("[]") @map("supported_jobs")
+  concurrency     Int          @default(5)
+  runningJobs     Int          @default(0) @map("running_jobs")
+  completedJobs   Int          @default(0) @map("completed_jobs")
+  failedJobs      Int          @default(0) @map("failed_jobs")
+  currentLoad     Float        @default(0.0) @map("current_load")
+  lastHeartbeat   DateTime     @default(now()) @map("last_heartbeat")
+  startedAt       DateTime     @default(now()) @map("started_at")
+  updatedAt       DateTime     @updatedAt @map("updated_at")
+  queueName       String?      @map("queue_name")
+
+  @@map("worker_nodes")
+}
