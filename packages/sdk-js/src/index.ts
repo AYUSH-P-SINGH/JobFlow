@@ -142,4 +142,36 @@ export class JobFlowClient {
       });
     },
   };
+
+  /**
+   * Worker registry operations
+   */
+  public workers = {
+    list: async (status?: string, region?: string) => {
+      const query = new URLSearchParams();
+      if (status) query.append('status', status);
+      if (region) query.append('region', region);
+      return this.request(`/api/v1/workers?${query.toString()}`);
+    },
+
+    get: async (id: string) => {
+      return this.request(`/api/v1/workers/${id}`);
+    },
+
+    metrics: async () => {
+      return this.request('/api/v1/workers/metrics');
+    },
+
+    drain: async (id: string) => {
+      return this.request(`/api/v1/workers/${id}/drain`, {
+        method: 'POST',
+      });
+    },
+
+    deregister: async (id: string) => {
+      return this.request(`/api/v1/workers/${id}`, {
+        method: 'DELETE',
+      });
+    },
+  };
 }

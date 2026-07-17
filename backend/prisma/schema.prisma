@@ -109,6 +109,9 @@ model Job {
   tenant       Tenant?       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
 
   @@map("jobs")
+  @@index([status])
+  @@index([tenantId])
+  @@index([type])
 }
 
 enum WorkflowStatus {
@@ -174,6 +177,9 @@ model Workflow {
   recoveryLogs    RecoveryLog[]
 
   @@map("workflows")
+  @@index([status])
+  @@index([tenantId])
+  @@index([createdAt])
 }
 
 model WorkflowStep {
@@ -194,6 +200,8 @@ model WorkflowStep {
 
   @@unique([workflowId, stepId])
   @@map("workflow_steps")
+  @@index([status])
+  @@index([workflowId])
 }
 
 model WorkflowHistory {
@@ -405,4 +413,6 @@ model WorkerNode {
   queueName       String?      @map("queue_name")
 
   @@map("worker_nodes")
+  @@index([status])
+  @@index([lastHeartbeat])
 }

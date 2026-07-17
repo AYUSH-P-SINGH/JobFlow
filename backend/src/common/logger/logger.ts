@@ -27,7 +27,16 @@ const logFormat = winston.format.combine(
   winston.format.printf((info) => {
     const correlationId = getCorrelationId();
     const cidPrefix = correlationId ? ` [CID: ${correlationId}]` : '';
-    return `[${info.timestamp}] [${info.level}]${cidPrefix}: ${info.message}`;
+    
+    const metaParts: string[] = [];
+    if (info.requestId) metaParts.push(`RID: ${info.requestId}`);
+    if (info.workflowId) metaParts.push(`WFID: ${info.workflowId}`);
+    if (info.workerId) metaParts.push(`WKID: ${info.workerId}`);
+    if (info.jobId) metaParts.push(`JID: ${info.jobId}`);
+    if (info.executionTime !== undefined) metaParts.push(`Duration: ${info.executionTime}ms`);
+    const metaPrefix = metaParts.length > 0 ? ` [${metaParts.join(', ')}]` : '';
+
+    return `[${info.timestamp}] [${info.level}]${cidPrefix}${metaPrefix}: ${info.message}`;
   })
 );
 
@@ -49,7 +58,15 @@ export class LokiTransport extends Transport {
     const level = info.level;
     const timestampNs = String(Date.now() * 1000000);
 
-    const logEntry = `[${level.toUpperCase()}]` + (correlationId ? ` [CID: ${correlationId}]` : '') + `: ${message}`;
+    const metaParts: string[] = [];
+    if (info.requestId) metaParts.push(`RID: ${info.requestId}`);
+    if (info.workflowId) metaParts.push(`WFID: ${info.workflowId}`);
+    if (info.workerId) metaParts.push(`WKID: ${info.workerId}`);
+    if (info.jobId) metaParts.push(`JID: ${info.jobId}`);
+    if (info.executionTime !== undefined) metaParts.push(`Duration: ${info.executionTime}ms`);
+    const metaPrefix = metaParts.length > 0 ? ` [${metaParts.join(', ')}]` : '';
+
+    const logEntry = `[${level.toUpperCase()}]` + (correlationId ? ` [CID: ${correlationId}]` : '') + metaPrefix + `: ${message}`;
 
     const payload = {
       streams: [

@@ -452,6 +452,122 @@ const OPENAPI_SPEC = {
         },
       },
     },
+    '/api/v1/workers/register': {
+      post: {
+        summary: 'Register a new Worker Node',
+        tags: ['Worker Nodes'],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                required: ['hostname'],
+                properties: {
+                  hostname: { type: 'string' },
+                  port: { type: 'integer' },
+                  region: { type: 'string' },
+                  tags: { type: 'array', items: { type: 'string' } },
+                  cpu: { type: 'integer' },
+                  memory: { type: 'integer' },
+                  gpu: { type: 'boolean' },
+                  supportedJobs: { type: 'array', items: { type: 'string' } },
+                  concurrency: { type: 'integer' },
+                  queueName: { type: 'string' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '201': { description: 'Worker registered successfully' },
+        },
+      },
+    },
+    '/api/v1/workers/{id}/heartbeat': {
+      post: {
+        summary: 'Send a heartbeat from a Worker Node',
+        tags: ['Worker Nodes'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        requestBody: {
+          required: true,
+          content: {
+            'application/json': {
+              schema: {
+                type: 'object',
+                properties: {
+                  runningJobs: { type: 'integer' },
+                  completedJobs: { type: 'integer' },
+                  failedJobs: { type: 'integer' },
+                  currentLoad: { type: 'number' },
+                },
+              },
+            },
+          },
+        },
+        responses: {
+          '200': { description: 'Heartbeat registered successfully' },
+        },
+      },
+    },
+    '/api/v1/workers/{id}/drain': {
+      post: {
+        summary: 'Drain a Worker Node for maintenance',
+        tags: ['Worker Nodes'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Worker draining initiated' },
+        },
+      },
+    },
+    '/api/v1/workers/metrics': {
+      get: {
+        summary: 'Get worker cluster metrics',
+        tags: ['Worker Nodes'],
+        responses: {
+          '200': { description: 'Aggregated worker statistics' },
+        },
+      },
+    },
+    '/api/v1/workers': {
+      get: {
+        summary: 'List all registered Worker Nodes',
+        tags: ['Worker Nodes'],
+        parameters: [
+          { name: 'status', in: 'query', schema: { type: 'string' } },
+          { name: 'region', in: 'query', schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'List of worker nodes' },
+        },
+      },
+    },
+    '/api/v1/workers/{id}': {
+      get: {
+        summary: 'Get details of a specific Worker Node',
+        tags: ['Worker Nodes'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Worker node details' },
+        },
+      },
+      delete: {
+        summary: 'Deregister and set Worker Node to OFFLINE',
+        tags: ['Worker Nodes'],
+        parameters: [
+          { name: 'id', in: 'path', required: true, schema: { type: 'string' } },
+        ],
+        responses: {
+          '200': { description: 'Worker node deregistered' },
+        },
+      },
+    },
   },
 };
 

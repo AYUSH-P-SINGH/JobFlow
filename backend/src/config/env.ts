@@ -12,6 +12,7 @@ export interface Config {
   redisHost: string;
   redisPort: number;
   redisPassword: string;
+  databaseUrl: string;
 }
 
 export const config: Config = {
@@ -22,10 +23,11 @@ export const config: Config = {
   redisHost: process.env.REDIS_HOST || 'localhost',
   redisPort: parseInt(process.env.REDIS_PORT || '6379', 10),
   redisPassword: process.env.REDIS_PASSWORD || '',
+  databaseUrl: process.env.DATABASE_URL || '',
 };
 
 // Simple configuration validation
-const requiredEnv: (keyof Config)[] = ['jwtSecret'];
+const requiredEnv: (keyof Config)[] = ['jwtSecret', 'databaseUrl'];
 for (const env of requiredEnv) {
   if (!config[env]) {
     throw new Error(`Environment variable validation failed: Missing ${env}`);

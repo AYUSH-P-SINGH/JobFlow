@@ -36,6 +36,7 @@ jobs:
       DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/jobflow?schema=public
       REDIS_HOST: localhost
       REDIS_PORT: 6379
+      JWT_SECRET: test_jwt_secret_key_which_is_more_than_32_bytes_long_xxxxxx
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -80,7 +81,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
+      - name: Set up QEMU
         uses: actions/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
@@ -92,7 +93,7 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Build and Push Docker Image
+      - name: Build and Push Backend Docker Image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -103,6 +104,18 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:${{ github.sha }}
           cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:buildcache
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:buildcache,mode=max
+
+      - name: Build and Push Frontend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./frontend
+          file: ./frontend/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:${{ github.sha }}
+          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:buildcache
+          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:buildcache,mode=max
 
   deploy:
     needs: build-and-push

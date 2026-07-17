@@ -21,6 +21,14 @@ router.get('/health', (req: Request, res: Response) => {
   });
 });
 
+// GET /live (Liveness Probe - lightweight check for Kubernetes)
+router.get('/live', (req: Request, res: Response) => {
+  res.status(200).json({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // GET /ready (Readiness Probe - checks dependencies)
 router.get('/ready', async (req: Request, res: Response) => {
   let dbStatus = 'healthy';

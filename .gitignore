@@ -41,3 +41,7 @@ coverage/
 # Local configuration files
 CVS/
 .svn/
+
+# Local databases
+pgdata/
+
