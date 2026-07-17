@@ -152,6 +152,18 @@ services:
       - prometheus
       - loki
 
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: jobflow-frontend-prod
+    restart: always
+    ports:
+      - '80:80'
+    depends_on:
+      - api
+
+
 volumes:
   postgres_data_prod:
   redis_data_prod:
