@@ -61,6 +61,13 @@ export class EnqueueService {
       jobId: job.id, // Use the database job ID as the BullMQ job ID for traceability
       priority: PriorityMap[job.priority],
       delay,
+      attempts: 3,
+      backoff: {
+        type: 'exponential',
+        delay: 1000,
+      },
+      removeOnComplete: { count: 200, age: 86400 },
+      removeOnFail: { count: 1000, age: 604800 },
     });
 
     logger.info(

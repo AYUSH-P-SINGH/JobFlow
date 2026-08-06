@@ -23,12 +23,13 @@ export const errorMiddleware = (
   }
 
   if (err instanceof ZodError) {
-    logger.warn(`Validation failure: [${req.method} ${req.path}] - ${JSON.stringify(err.issues)}`);
+    const issues = err.issues || (err as any).errors || [];
+    logger.warn(`Validation failure: [${req.method} ${req.path}] - ${JSON.stringify(issues)}`);
     return res.status(400).json({
       success: false,
       message: 'Validation failed',
-      errors: err.issues.map((e) => ({
-        path: e.path.join('.'),
+      errors: issues.map((e: any) => ({
+        path: Array.isArray(e.path) ? e.path.join('.') : String(e.path || ''),
         message: e.message,
       })),
     });

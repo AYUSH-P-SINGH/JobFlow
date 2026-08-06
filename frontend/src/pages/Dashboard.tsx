@@ -67,9 +67,9 @@ export const Dashboard: React.FC = () => {
       setWorkflows((prev) =>
         prev.map((w) => (w.id === payload.workflow.id ? { ...w, ...payload.workflow } : w))
       );
-      if (selectedWorkflow && selectedWorkflow.id === payload.workflow.id) {
-        setSelectedWorkflow((prev: any) => ({ ...prev, ...payload.workflow }));
-      }
+      setSelectedWorkflow((prev: any) => 
+        prev && prev.id === payload.workflow.id ? { ...prev, ...payload.workflow } : prev
+      );
     };
 
     const handleWorkflowCompleted = (payload: any) => {
@@ -82,9 +82,9 @@ export const Dashboard: React.FC = () => {
         activeWorkflows: Math.max(0, prev.activeWorkflows - 1),
         totalWorkflows: prev.totalWorkflows + 1,
       }));
-      if (selectedWorkflow && selectedWorkflow.id === payload.workflow.id) {
-        setSelectedWorkflow((prev: any) => ({ ...prev, ...payload.workflow }));
-      }
+      setSelectedWorkflow((prev: any) => 
+        prev && prev.id === payload.workflow.id ? { ...prev, ...payload.workflow } : prev
+      );
       fetchData(); // Refresh queue and exact metrics
     };
 
@@ -97,25 +97,24 @@ export const Dashboard: React.FC = () => {
         ...prev,
         activeWorkflows: Math.max(0, prev.activeWorkflows - 1),
       }));
-      if (selectedWorkflow && selectedWorkflow.id === payload.workflow.id) {
-        setSelectedWorkflow((prev: any) => ({ ...prev, ...payload.workflow }));
-      }
+      setSelectedWorkflow((prev: any) => 
+        prev && prev.id === payload.workflow.id ? { ...prev, ...payload.workflow } : prev
+      );
       fetchData();
     };
 
     const handleJobProgress = (payload: any) => {
       console.log('Real-time job.progress:', payload);
-      // Trigger detail view update if active
-      if (selectedWorkflow) {
-        // Find if job belongs to selected workflow and update progress
-        const updatedSteps = selectedWorkflow.steps?.map((step: any) => {
+      setSelectedWorkflow((prev: any) => {
+        if (!prev) return null;
+        const updatedSteps = prev.steps?.map((step: any) => {
           if (step.jobId === payload.jobId) {
             return { ...step, progress: payload.progress, status: 'RUNNING' };
           }
           return step;
         });
-        setSelectedWorkflow((prev: any) => prev ? { ...prev, steps: updatedSteps } : null);
-      }
+        return { ...prev, steps: updatedSteps };
+      });
     };
 
     socketService.on('workflow.started', handleWorkflowStarted);
@@ -132,7 +131,7 @@ export const Dashboard: React.FC = () => {
       socketService.off('workflow.failed', handleWorkflowFailed);
       socketService.off('job.progress', handleJobProgress);
     };
-  }, [selectedWorkflow?.id]);
+  }, []);
 
   const handleSelectWorkflow = async (wf: any) => {
     setSelectedWorkflow(wf);

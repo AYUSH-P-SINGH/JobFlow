@@ -77,6 +77,6 @@ export const queryWorkflowsSchema = z.object({
 
 export const workflowIdParamSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid workflow ID format'),
+    id: z.string().min(1, 'Invalid workflow ID format'),
   }),
 });

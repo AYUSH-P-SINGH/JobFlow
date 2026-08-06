@@ -3,6 +3,9 @@ import assert from 'node:assert';
 import supertest from 'supertest';
 import app from '../../app.js';
 import prisma from '../../prisma.js';
+import { userRepository } from '../auth/auth.repository.js';
+import { jobRepository } from '../jobs/job.repository.js';
+import { workflowRepository } from './workflow.repository.js';
 import { EnqueueService } from '../jobs/enqueue.service.js';
 import { ExecutionService } from '../jobs/execution.service.js';
 import { WorkflowStatus } from './workflow.types.js';
@@ -41,13 +44,10 @@ test.describe('Workflow Module Integration Tests', { concurrency: 1 }, () => {
   let adminToken: string;
 
   test.beforeEach(async () => {
-    // Clean up DB tables
-    await prisma.workflowHistory.deleteMany({});
-    await prisma.workflowStep.deleteMany({});
-    await prisma.workflow.deleteMany({});
-    await prisma.refreshToken.deleteMany({});
-    await prisma.job.deleteMany({});
-    await prisma.user.deleteMany({});
+    // Clean up tables via repository layer
+    await workflowRepository.clear();
+    await jobRepository.clear();
+    await userRepository.clear();
 
     // Register User A
     const resA = await request
@@ -69,10 +69,11 @@ test.describe('Workflow Module Integration Tests', { concurrency: 1 }, () => {
       .send({ email: 'wfadmin@example.com', password: 'password123' });
     const adminId = resAdmin.body.data.user.id;
 
-    await prisma.user.update({
-      where: { id: adminId },
-      data: { role: 'ADMIN' },
-    });
+    const adminUser = await userRepository.findById(adminId);
+    if (adminUser) {
+      adminUser.role = 'ADMIN';
+      await userRepository.saveDirectly(adminUser);
+    }
 
     const resLogin = await request
       .post('/api/v1/auth/login')

@@ -25,8 +25,6 @@ test.describe('Queue Architecture & Setup Tests', () => {
     logger.info("TEST HOOK: after() starting cleanup...");
     closeQueueEvents().catch(() => {});
     closeAllQueues().catch(() => {});
-    logger.info("TEST HOOK: exiting process...");
-    process.exit(0);
   });
 
   test('Queue Names and Priority Map exist and are correct', () => {

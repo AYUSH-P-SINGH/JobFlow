@@ -6,24 +6,25 @@ JobFlow is a high-performance distributed task processing and workflow orchestra
 
 ---
 
-## 🗺️ Project State: Phase 17 Production Ready
+## 🗺️ Project State: Production Ready
 
 JobFlow has evolved into a complete, enterprise-grade production platform:
-*   **Intelligent Distributed Workers (Phase 16)**: Worker nodes register with CPU/Memory telemetry and check in via heartbeats, supporting specialized routing rules (least-loaded, priority-based, round-robin, capability matching). Nodes can be gracefully drained for maintenance.
-*   **Vite React Dashboard (Phase 17)**: A high-fidelity dark-themed single page application supporting login/registration, live BullMQ queue tracking, dynamic node stats, a drag-and-drop visual DAG builder, and a CSV import batch validator.
-*   **JS SDK & Developer CLI (Phase 17)**: A unified JS SDK client and command-line tool `jobflow` supporting workspace scaffolding, deploying templates, and monitoring workers.
-*   **Enterprise Production Observability**: Real-time events streaming via Socket.IO, Winston-based trace tracking (`requestId`, `workflowId`, `workerId`, `jobId`), Prometheus `/metrics`, and Loki log streams.
+
+- **Intelligent Distributed Workers (Phase 16)**: Worker nodes register with CPU/Memory telemetry and check in via heartbeats, supporting specialized routing rules (least-loaded, priority-based, round-robin, capability matching). Nodes can be gracefully drained for maintenance.
+- **Vite React Dashboard (Phase 17)**: A high-fidelity dark-themed single page application supporting login/registration, live BullMQ queue tracking, dynamic node stats, a drag-and-drop visual DAG builder, and a CSV import batch validator.
+- **JS SDK & Developer CLI (Phase 17)**: A unified JS SDK client and command-line tool `jobflow` supporting workspace scaffolding, deploying templates, and monitoring workers.
+- **Enterprise Production Observability**: Real-time events streaming via Socket.IO, Winston-based trace tracking (`requestId`, `workflowId`, `workerId`, `jobId`), Prometheus `/metrics`, and Loki log streams.
 
 ---
 
 ## 🛠️ Technology Stack
 
-*   **Frontend**: React (v18), Vite, TypeScript, Socket.IO Client, CSS Themes.
-*   **Backend**: Node.js (v20+), Express.js (v4), TypeScript.
-*   **Orchestration & State**: BullMQ & Redis, PostgreSQL, Prisma ORM.
-*   **Observability**: Winston Logger, Prometheus, Grafana, Loki.
-*   **Developer Tooling**: JS SDK, CLI, Swagger OpenAPI.
-*   **Testing**: k6 Load Testing, Chaos Failover Scripts, Node.js Native Test Runner.
+- **Frontend**: React (v18), Vite, TypeScript, Socket.IO Client, CSS Themes.
+- **Backend**: Node.js (v20+), Express.js (v4), TypeScript.
+- **Orchestration & State**: BullMQ & Redis, PostgreSQL, Prisma ORM.
+- **Observability**: Winston Logger, Prometheus, Grafana, Loki.
+- **Developer Tooling**: JS SDK, CLI, Swagger OpenAPI.
+- **Testing**: k6 Load Testing, Chaos Failover Scripts, Node.js Native Test Runner.
 
 ---
 
@@ -69,11 +70,12 @@ docker compose -f docker-compose.prod.yml up --build -d
 ```
 
 Once running:
-*   **React Dashboard**: Access at [http://localhost](http://localhost) (mapped on port 80).
-*   **API Web Server**: Access at [http://localhost:5000](http://localhost:5000).
-*   **API Swagger Reference**: Explore at [http://localhost:5000/docs](http://localhost:5000/docs).
-*   **Grafana Telemetry**: Monitor dashboards at [http://localhost:3000](http://localhost:3000).
-*   **BullMQ Admin Panel**: Manage queue statuses at [http://localhost:5000/admin/queues](http://localhost:5000/admin/queues).
+
+- **React Dashboard**: Access at [http://localhost](http://localhost) (mapped on port 80).
+- **API Web Server**: Access at [http://localhost:5000](http://localhost:5000).
+- **API Swagger Reference**: Explore at [http://localhost:5000/docs](http://localhost:5000/docs).
+- **Grafana Telemetry**: Monitor dashboards at [http://localhost:3000](http://localhost:3000).
+- **BullMQ Admin Panel**: Manage queue statuses at [http://localhost:5000/admin/queues](http://localhost:5000/admin/queues).
 
 ---
 
@@ -82,35 +84,38 @@ Once running:
 The CLI tool allows developers to manage pipelines and worker nodes directly from the console.
 
 ### Installation
+
 ```bash
 npm install -g ./packages/cli
 ```
 
 ### Commands List
-*   **Scaffold a Workflow template**:
-    ```bash
-    jobflow create my-pipeline
-    ```
-*   **Manage Workflows**:
-    ```bash
-    jobflow workflow list
-    jobflow workflow deploy my-pipeline.json
-    jobflow workflow run <template-id>
-    jobflow workflow status <run-id>
-    jobflow workflow logs <run-id>
-    ```
-*   **Manage Worker Clusters**:
-    ```bash
-    jobflow worker list
-    jobflow worker metrics
-    jobflow worker drain <worker-id>
-    ```
+
+- **Scaffold a Workflow template**:
+  ```bash
+  jobflow create my-pipeline
+  ```
+- **Manage Workflows**:
+  ```bash
+  jobflow workflow list
+  jobflow workflow deploy my-pipeline.json
+  jobflow workflow run <template-id>
+  jobflow workflow status <run-id>
+  jobflow workflow logs <run-id>
+  ```
+- **Manage Worker Clusters**:
+  ```bash
+  jobflow worker list
+  jobflow worker metrics
+  jobflow worker drain <worker-id>
+  ```
 
 ---
 
 ## 🔬 Testing Suites
 
 ### Running Native Backend Tests
+
 ```bash
 cd backend
 npm install
@@ -118,11 +123,15 @@ npm test
 ```
 
 ### Running k6 Load Tests
+
 Ensures that the API handles high concurrent workflow registration under 500ms response targets:
+
 ```bash
 k6 run -e API_URL=http://localhost:5000 backend/tests/load/k6-load-test.js
 ```
+
 See the [Load Testing Guide](docs/testing/load-testing.md) for more details.
 
 ### Reviewing Failover & Chaos Playbooks
+
 Check [Chaos Testing Guide](docs/testing/chaos-testing.md) for behavior analysis during Postgres, Redis, and Worker Node recovery scenarios.

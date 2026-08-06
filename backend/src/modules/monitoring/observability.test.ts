@@ -5,6 +5,11 @@ import supertest from 'supertest';
 import { io as Client } from 'socket.io-client';
 import app from '../../app.js';
 import prisma from '../../prisma.js';
+import { userRepository } from '../auth/auth.repository.js';
+import { jobRepository } from '../jobs/job.repository.js';
+import { workflowRepository } from '../workflow/workflow.repository.js';
+import { notificationRepository } from '../notifications/notification.repository.js';
+import { auditRepository } from './audit.repository.js';
 import { initSocketServer, closeSocketServer } from '../../socket/socket.server.js';
 import { eventBus } from '../../events/event.bus.js';
 import { NotificationService } from '../notifications/notification.service.js';
@@ -45,15 +50,12 @@ test.describe('Observability & Real-Time Monitoring Integration Tests', { concur
   });
 
   test.beforeEach(async () => {
-    // Clear all DB tables
-    await prisma.notification.deleteMany({});
-    await prisma.auditLog.deleteMany({});
-    await prisma.workflowHistory.deleteMany({});
-    await prisma.workflowStep.deleteMany({});
-    await prisma.workflow.deleteMany({});
-    await prisma.refreshToken.deleteMany({});
-    await prisma.job.deleteMany({});
-    await prisma.user.deleteMany({});
+    // Clear all DB tables via repositories
+    await notificationRepository.clear();
+    await auditRepository.clear();
+    await workflowRepository.clear();
+    await jobRepository.clear();
+    await userRepository.clear();
 
     // Register User A
     const resA = await request
@@ -76,10 +78,11 @@ test.describe('Observability & Real-Time Monitoring Integration Tests', { concur
     adminId = resAdmin.body.data.user.id;
 
     // Promote to Admin
-    await prisma.user.update({
-      where: { id: adminId },
-      data: { role: 'ADMIN' },
-    });
+    const adminUser = await userRepository.findById(adminId);
+    if (adminUser) {
+      adminUser.role = 'ADMIN';
+      await userRepository.saveDirectly(adminUser);
+    }
 
     const resLogin = await request
       .post('/api/v1/auth/login')

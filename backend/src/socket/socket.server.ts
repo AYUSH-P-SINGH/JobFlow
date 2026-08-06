@@ -5,6 +5,7 @@ import { socketAuthMiddleware } from './socket.middleware.js';
 import { handleDefaultRoomsJoin, registerRoomListeners } from './socket.rooms.js';
 import { SocketGateway } from './socket.gateway.js';
 import { logger } from '../common/logger/logger.js';
+import { config } from '../config/env.js';
 
 let io: Server | null = null;
 let gateway: SocketGateway | null = null;
@@ -13,10 +14,15 @@ let gateway: SocketGateway | null = null;
  * Initializes the Socket.IO server and binds it to the HTTP server.
  */
 export function initSocketServer(server: HttpServer): Server {
+  const allowedOrigins = config.corsOrigin.includes(',') 
+    ? config.corsOrigin.split(',') 
+    : config.corsOrigin;
+
   io = new Server(server, {
     cors: {
-      origin: '*',
+      origin: allowedOrigins,
       methods: ['GET', 'POST'],
+      credentials: true,
     },
   });
 

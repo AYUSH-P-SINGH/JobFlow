@@ -45,6 +45,6 @@ export const queryJobsSchema = z.object({
 
 export const jobIdParamSchema = z.object({
   params: z.object({
-    id: z.string().uuid('Invalid job ID format'),
+    id: z.string().min(1, 'Invalid job ID format'),
   }),
 });

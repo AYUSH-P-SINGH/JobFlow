@@ -3,6 +3,8 @@ import assert from 'node:assert';
 import supertest from 'supertest';
 import app from '../../app.js';
 import prisma from '../../prisma.js';
+import { userRepository } from '../auth/auth.repository.js';
+import { jobRepository } from './job.repository.js';
 import { EnqueueService } from './enqueue.service.js';
 
 test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
@@ -24,9 +26,8 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
 
   test.beforeEach(async () => {
     // Clear database users and jobs
-    await prisma.refreshToken.deleteMany({});
-    await prisma.job.deleteMany({});
-    await prisma.user.deleteMany({});
+    await jobRepository.clear();
+    await userRepository.clear();
 
     // Register User A
     const resA = await request
@@ -48,10 +49,11 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
       .send({ email: 'admin@example.com', password: 'password123' });
     adminId = resAdminReg.body.data.user.id;
 
-    await prisma.user.update({
-      where: { id: adminId },
-      data: { role: 'ADMIN' },
-    });
+    const adminUser = await userRepository.findById(adminId);
+    if (adminUser) {
+      adminUser.role = 'ADMIN';
+      await userRepository.saveDirectly(adminUser);
+    }
 
     // Login Admin to get token
     const resAdminLogin = await request
@@ -267,8 +269,8 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
       .set('Authorization', `Bearer ${tokenA}`);
     assert.strictEqual(res.status, 404);
 
-    // Verify it is still in database physically
-    const dbJob = await prisma.job.findUnique({ where: { id: jobId } });
+    // Verify it is still in storage physically
+    const dbJob = await jobRepository.findById(jobId);
     assert.ok(dbJob);
     assert.ok(dbJob.deletedAt);
   });
