@@ -2,14 +2,15 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
+import { config } from './config/env.js';
 import { logger } from './common/logger/logger.js';
 import routes from './routes/index.js';
 import { errorMiddleware } from './common/middleware/error.middleware.js';
 import { notFoundMiddleware } from './common/middleware/notFound.middleware.js';
 import { tracingMiddleware } from './common/middleware/tracing.middleware.js';
 import { MetricsService } from './modules/monitoring/metrics.service.js';
-import './modules/plugins/plugin.manager.js';
 import { GatewayMiddleware } from './gateway/gateway.middleware.js';
+import './modules/plugins/plugin.manager.js';
 
 const app = express();
 
@@ -43,7 +44,7 @@ app.use(
         styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
         fontSrc: ["'self'", "https://fonts.gstatic.com"],
         imgSrc: ["'self'", "data:"],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", "ws:", "wss:"],
       },
     },
     hsts: {
@@ -59,11 +60,16 @@ app.use(
     },
   })
 );
-app.use(cors());
+
+app.use(
+  cors({
+    origin: config.corsOrigin.includes(',') ? config.corsOrigin.split(',') : config.corsOrigin,
+    credentials: true,
+  })
+);
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-import { rateLimitMiddleware } from './common/middleware/rateLimit.middleware.js';
-app.use(rateLimitMiddleware);
 
 // Integrate Morgan HTTP request logger with our custom Winston logger
 const morganFormat = ':remote-addr :method :url :status :res[content-length] - :response-time ms';

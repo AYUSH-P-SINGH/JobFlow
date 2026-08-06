@@ -23,7 +23,12 @@ function App() {
     if (token) {
       setIsAuthenticated(true);
       if (savedUser) {
-        setUser(JSON.parse(savedUser));
+        try {
+          setUser(JSON.parse(savedUser));
+        } catch {
+          localStorage.removeItem('jobflow_user');
+          setUser(null);
+        }
       }
     } else {
       setIsAuthenticated(false);

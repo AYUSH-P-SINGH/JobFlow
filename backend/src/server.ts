@@ -65,39 +65,56 @@ process.on('uncaughtException', (err: Error) => {
 });
 
 // Handle graceful shutdown
+let isShuttingDown = false;
+
 const gracefulShutdown = (signal: string) => {
+  if (isShuttingDown) {
+    logger.warn(`Shutdown already in progress. Ignoring additional signal: ${signal}`);
+    return;
+  }
+  isShuttingDown = true;
   logger.info(`Received ${signal}. Starting graceful shutdown...`);
   
-  server.close(async () => {
-    logger.info('HTTP server closed.');
-
-    // Close Socket.IO first, then queue event listeners, then queues, then Redis, then DB
-    await closeSocketServer();
-
-    // Phase 16: Shut down worker management services
-    WorkerDiscovery.stop();
-    WorkerRegistry.shutdown();
-
-    await closeQueueEvents();
-    await closeAllQueues();
-
-    try {
-      await redisConnection.quit();
-      logger.info('Redis connection closed.');
-    } catch (error) {
-      logger.error('Error closing Redis connection:', error);
-    }
-
-    await disconnectDatabase();
-    process.exit(0);
-  });
-
   // Force shut down after 10s if connections remain active
-  setTimeout(async () => {
+  const timer = setTimeout(() => {
     logger.error('Could not close active connections in time, forcing shutdown');
-    await disconnectDatabase();
     process.exit(1);
   }, 10000);
+  timer.unref();
+
+  server.close(async (err) => {
+    if (err) {
+      logger.error('Error closing HTTP server:', err);
+    } else {
+      logger.info('HTTP server closed.');
+    }
+
+    try {
+      // Close Socket.IO first, then queue event listeners, then queues, then Redis, then DB
+      await closeSocketServer();
+
+      // Phase 16: Shut down worker management services
+      WorkerDiscovery.stop();
+      WorkerRegistry.shutdown();
+
+      await closeQueueEvents();
+      await closeAllQueues();
+
+      try {
+        await redisConnection.quit();
+        logger.info('Redis connection closed.');
+      } catch (error) {
+        logger.error('Error closing Redis connection:', error);
+      }
+
+      await disconnectDatabase();
+      logger.info('Graceful shutdown completed successfully.');
+      process.exit(0);
+    } catch (shutdownErr) {
+      logger.error('Error during shutdown steps:', shutdownErr);
+      process.exit(1);
+    }
+  });
 };
 
 process.on('SIGTERM', () => gracefulShutdown('SIGTERM'));

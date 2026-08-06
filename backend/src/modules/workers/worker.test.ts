@@ -3,6 +3,7 @@ import assert from 'node:assert';
 import supertest from 'supertest';
 import app from '../../app.js';
 import prisma from '../../prisma.js';
+import { WorkerRepository } from './worker.repository.js';
 import { WorkerRegistry } from './scheduler/worker.registry.js';
 import { WorkerSelection } from './scheduler/worker.selection.js';
 import { IntelligentScheduler } from './scheduler/worker.scheduler.js';
@@ -14,7 +15,7 @@ test.describe('Worker Management Module Tests', { concurrency: 1 }, () => {
 
   test.beforeEach(async () => {
     // Clear worker_nodes table before each test
-    await prisma.workerNode.deleteMany({});
+    await WorkerRepository.clear();
     // Sync the registry cache
     await WorkerRegistry.sync();
   });

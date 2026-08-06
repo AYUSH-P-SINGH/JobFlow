@@ -6,9 +6,9 @@ services:
     container_name: jobflow-postgres-prod
     restart: always
     environment:
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-      POSTGRES_DB: jobflow
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgrespassword}
+      POSTGRES_DB: ${POSTGRES_DB:-jobflow}
     ports:
       - '5432:5432'
     volumes:
@@ -53,12 +53,13 @@ services:
     environment:
       - PORT=5000
       - NODE_ENV=production
-      - JWT_SECRET=super_secret_jwt_key_jobflow_production
-      - JWT_EXPIRES_IN=1h
-      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/jobflow?schema=public
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1h}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgrespassword@postgres:5432/jobflow?schema=public}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - CORS_ORIGIN=${CORS_ORIGIN:-http://localhost:80}
       - ENABLE_TRACING=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
       - OTEL_SERVICE_NAME=jobflow-api
@@ -85,12 +86,12 @@ services:
     environment:
       - WORKER_PORT=5001
       - NODE_ENV=production
-      - JWT_SECRET=super_secret_jwt_key_jobflow_production
-      - JWT_EXPIRES_IN=1h
-      - DATABASE_URL=postgresql://postgres:postgrespassword@postgres:5432/jobflow?schema=public
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_EXPIRES_IN=${JWT_EXPIRES_IN:-1h}
+      - DATABASE_URL=${DATABASE_URL:-postgresql://postgres:postgrespassword@postgres:5432/jobflow?schema=public}
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - REDIS_PASSWORD=
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - ENABLE_TRACING=true
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318/v1/traces
       - OTEL_SERVICE_NAME=jobflow-worker
@@ -113,6 +114,7 @@ services:
     restart: always
     volumes:
       - ./docker/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./docker/prometheus/alert.rules.yml:/etc/prometheus/alert.rules.yml
       - prometheus_data:/prometheus
     ports:
       - '9090:9090'
@@ -125,6 +127,7 @@ services:
     restart: always
     volumes:
       - ./docker/loki/loki-config.yaml:/etc/loki/local-config.yaml
+      - loki_data:/loki
     ports:
       - '3100:3100'
     command: -config.file=/etc/loki/local-config.yaml
@@ -147,6 +150,7 @@ services:
     ports:
       - '3000:3000'
     volumes:
+      - ./docker/grafana/provisioning:/etc/grafana/provisioning
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
@@ -168,4 +172,5 @@ volumes:
   postgres_data_prod:
   redis_data_prod:
   prometheus_data:
+  loki_data:
   grafana_data:

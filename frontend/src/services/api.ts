@@ -46,15 +46,26 @@ class ApiService {
   private async request(path: string, options: RequestInit = {}, authRequired = true): Promise<any> {
     const url = `${this.baseUrl}${path}`;
     const headers = this.getHeaders(authRequired);
+    
+    // Add 15 second request timeout fallback
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 15000);
+
     const config = {
       ...options,
       headers: {
         ...headers,
         ...options.headers,
       },
+      signal: options.signal || controller.signal,
     };
 
-    let response = await fetch(url, config);
+    let response: Response;
+    try {
+      response = await fetch(url, config);
+    } finally {
+      clearTimeout(timeoutId);
+    }
 
     // If unauthorized, attempt token refresh once
     if (response.status === 401 && authRequired && localStorage.getItem('jobflow_refresh_token')) {

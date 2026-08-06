@@ -1,3 +1,4 @@
+import os from 'os';
 import { createJobWorker, closeJobWorker, createSpecializedWorker, closeSpecializedWorkers } from './worker.factory.js';
 import { startCronWorker, stopCronWorker } from '../modules/scheduler/cron.runner.js';
 import prisma from '../prisma.js';
@@ -25,11 +26,16 @@ const WORKER_CONCURRENCY = parseInt(process.env.WORKER_CONCURRENCY || '5', 10);
 /** Worker region from environment */
 const WORKER_REGION = process.env.WORKER_REGION || 'default';
 
-/** Worker tags from environment (comma-separated) */
-const WORKER_TAGS = (process.env.WORKER_TAGS || '')
-  .split(',')
-  .map((s) => s.trim())
-  .filter(Boolean);
+/** Worker tags from environment (JSON array or comma-separated) */
+const WORKER_TAGS = (() => {
+  const raw = process.env.WORKER_TAGS;
+  if (!raw) return ['general'];
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return raw.split(',').map((t) => t.trim());
+  }
+})();
 
 let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -44,7 +50,7 @@ async function selfRegister(): Promise<void> {
     return;
   }
 
-  const hostname = process.env.HOSTNAME || require('os').hostname();
+  const hostname = process.env.HOSTNAME || os.hostname();
   const port = parseInt(process.env.WORKER_PORT || '5001', 10);
 
   const registrationPayload = {
@@ -52,8 +58,8 @@ async function selfRegister(): Promise<void> {
     port,
     region: WORKER_REGION,
     tags: WORKER_TAGS,
-    cpu: require('os').cpus().length,
-    memory: Math.round(require('os').totalmem() / 1024 / 1024),
+    cpu: os.cpus().length,
+    memory: Math.round(os.totalmem() / 1024 / 1024),
     gpu: process.env.WORKER_GPU === 'true',
     supportedJobs: WORKER_SUPPORTED_JOBS,
     concurrency: WORKER_CONCURRENCY,
