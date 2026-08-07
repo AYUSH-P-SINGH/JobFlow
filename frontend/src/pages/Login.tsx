@@ -9,7 +9,6 @@ interface LoginProps {
 export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegister }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [apiUrl, setApiUrl] = useState(apiService.getBaseUrl());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -19,7 +18,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
     setLoading(true);
 
     try {
-      apiService.setBaseUrl(apiUrl);
       await apiService.login({ email, password });
       onLoginSuccess();
     } catch (err: any) {
@@ -47,17 +45,6 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Server Host URL</label>
-            <input 
-              type="text" 
-              className="form-control" 
-              value={apiUrl} 
-              onChange={(e) => setApiUrl(e.target.value)} 
-              placeholder="http://localhost:5000"
-              required 
-            />
-          </div>
 
           <div className="form-group">
             <label className="form-label">Email Address</label>

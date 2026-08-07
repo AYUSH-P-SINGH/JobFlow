@@ -10,7 +10,6 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [apiUrl, setApiUrl] = useState(apiService.getBaseUrl());
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -42,7 +41,6 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
     setLoading(true);
 
     try {
-      apiService.setBaseUrl(apiUrl);
       await apiService.register({ email, password });
       onRegisterSuccess();
     } catch (err: any) {
@@ -70,17 +68,6 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group">
-            <label className="form-label">Server Host URL</label>
-            <input 
-              type="text" 
-              className="form-control" 
-              value={apiUrl} 
-              onChange={(e) => setApiUrl(e.target.value)} 
-              placeholder="http://localhost:5000"
-              required 
-            />
-          </div>
 
           <div className="form-group">
             <label className="form-label">Email Address</label>
