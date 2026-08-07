@@ -21,10 +21,14 @@ test.describe('Queue Architecture & Setup Tests', () => {
     initJobQueue();
   });
 
-  after(() => {
+  after(async () => {
     logger.info("TEST HOOK: after() starting cleanup...");
-    closeQueueEvents().catch(() => {});
-    closeAllQueues().catch(() => {});
+    await closeQueueEvents().catch(() => {});
+    await closeAllQueues().catch(() => {});
+    try {
+      const { redisConnection } = await import('../../config/redis.js');
+      await redisConnection.quit();
+    } catch {}
   });
 
   test('Queue Names and Priority Map exist and are correct', () => {
