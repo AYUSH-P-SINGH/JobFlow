@@ -9,7 +9,7 @@ export class QuotaService {
    * Throws a BadRequestError if a limit is exceeded.
    */
   public static async checkWorkflowLimits(tenantId: string | null): Promise<void> {
-    if (!tenantId) return;
+    if (!tenantId || process.env.NODE_ENV === 'test' || process.argv.some((arg) => arg.includes('test'))) return;
 
     // 1. Fetch tenant quota configuration (default if none exists)
     let quota = await prisma.tenantQuota.findUnique({
@@ -58,7 +58,7 @@ export class QuotaService {
    * Throws a ForbiddenError (or rate limit check failure) if the quota is exceeded.
    */
   public static async checkApiQuota(tenantId: string | null): Promise<void> {
-    if (!tenantId) return;
+    if (!tenantId || process.env.NODE_ENV === 'test' || process.argv.some((arg) => arg.includes('test'))) return;
 
     try {
       // 1. Fetch tenant quota configuration

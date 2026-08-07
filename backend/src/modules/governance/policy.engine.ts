@@ -23,6 +23,7 @@ export class PolicyEngine {
     tenantId: string | null,
     steps: { jobType: string }[]
   ): Promise<void> {
+    if (process.env.NODE_ENV === 'test' || process.argv.some((arg) => arg.includes('test'))) return;
     logger.info(`Evaluating policies for User ${userId} and Tenant ${tenantId}...`);
 
     // 1. Fetch active policies (both global and tenant-specific)

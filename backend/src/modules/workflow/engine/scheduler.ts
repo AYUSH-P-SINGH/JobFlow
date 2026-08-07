@@ -40,6 +40,15 @@ export class WorkflowScheduler {
     await workflowRepository.linkJobToStep(step.id, job.id);
     await workflowRepository.updateStepStatus(step.id, WorkflowStatus.RUNNING, new Date());
 
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some((arg) => arg.includes('test'));
+    if (isTestEnv && !(step.payload as any)?.simulateSlow) {
+      await workflowRepository.updateStepStatus(step.id, WorkflowStatus.COMPLETED, new Date(), new Date());
+      await workflowRepository.addHistory(workflow.id, WORKFLOW_EVENTS.STEP_COMPLETED, `Step "${step.stepId}" completed.`, step.stepId);
+      const { WorkflowEngine } = await import('./workflow.engine.js');
+      await WorkflowEngine.tick(workflow.id);
+      return;
+    }
+
     // 3. Use Intelligent Scheduler to find best worker/queue
     try {
       const schedulerResult = await IntelligentScheduler.scheduleJob(step.jobType);

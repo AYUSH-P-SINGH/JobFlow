@@ -15,6 +15,8 @@ import { HandlerFactory } from '../../workers/handlers/handler.factory.js';
 import { ExecutionService } from './execution.service.js';
 import { WorkerHealthTracker } from '../../workers/worker.health.js';
 import prisma from '../../prisma.js';
+import { authRepository } from '../auth/auth.repository.js';
+import { jobRepository } from './job.repository.js';
 
 test.describe('Queue Architecture & Setup Tests', () => {
   before(() => {
@@ -147,28 +149,24 @@ test.describe('Queue Architecture & Setup Tests', () => {
   });
 
   test('ExecutionService executes an email job successfully and updates DB status', async () => {
-    // 1. Create a user
-    const user = await prisma.user.create({
-      data: {
-        email: `worker-test-${Date.now()}@example.com`,
-        passwordHash: 'dummyhash',
-      },
+    // 1. Create a user via repository
+    const user = await authRepository.create({
+      email: `worker-test-${Date.now()}@example.com`,
+      passwordHash: 'dummyhash',
+      role: 'USER' as any,
     });
 
-    // 2. Create a job in DB
-    const job = await prisma.job.create({
-      data: {
-        title: 'Send Welcoming Email',
-        type: 'EMAIL',
-        priority: JobPriority.HIGH,
-        payload: {
-          to: 'customer@example.com',
-          subject: 'Welcome!',
-          body: 'Thank you for joining our platform.',
-        },
-        userId: user.id,
-        status: JobStatus.QUEUED,
+    // 2. Create a job via repository
+    const job = await jobRepository.create({
+      title: 'Send Welcoming Email',
+      type: 'EMAIL',
+      priority: JobPriority.HIGH,
+      payload: {
+        to: 'customer@example.com',
+        subject: 'Welcome!',
+        body: 'Thank you for joining our platform.',
       },
+      userId: user.id,
     });
 
     // 3. Mock BullMQ job
@@ -184,7 +182,7 @@ test.describe('Queue Architecture & Setup Tests', () => {
     assert.strictEqual(result.recipient, 'customer@example.com');
 
     // 5. Assert database updates
-    const updatedJob = await prisma.job.findUnique({ where: { id: job.id } });
+    const updatedJob = await jobRepository.findByIdIncludeDeleted(job.id);
     assert.ok(updatedJob);
     assert.strictEqual(updatedJob.status, JobStatus.COMPLETED);
     assert.ok(updatedJob.startedAt);
@@ -200,26 +198,22 @@ test.describe('Queue Architecture & Setup Tests', () => {
   });
 
   test('ExecutionService handles validation failure and updates DB to FAILED', async () => {
-    // 1. Create a user
-    const user = await prisma.user.create({
-      data: {
-        email: `worker-err-${Date.now()}@example.com`,
-        passwordHash: 'dummyhash',
-      },
+    // 1. Create a user via repository
+    const user = await authRepository.create({
+      email: `worker-err-${Date.now()}@example.com`,
+      passwordHash: 'dummyhash',
+      role: 'USER' as any,
     });
 
-    // 2. Create a job in DB with invalid payload for email (missing to and body)
-    const job = await prisma.job.create({
-      data: {
-        title: 'Invalid Email Job',
-        type: 'EMAIL',
-        priority: JobPriority.MEDIUM,
-        payload: {
-          subject: 'This has no "to" address',
-        },
-        userId: user.id,
-        status: JobStatus.QUEUED,
+    // 2. Create a job via repository
+    const job = await jobRepository.create({
+      title: 'Invalid Email Job',
+      type: 'EMAIL',
+      priority: JobPriority.MEDIUM,
+      payload: {
+        subject: 'This has no "to" address',
       },
+      userId: user.id,
     });
 
     // 3. Mock BullMQ job
@@ -235,7 +229,7 @@ test.describe('Queue Architecture & Setup Tests', () => {
     });
 
     // 5. Assert DB updates (status FAILED, error result recorded)
-    const updatedJob = await prisma.job.findUnique({ where: { id: job.id } });
+    const updatedJob = await jobRepository.findByIdIncludeDeleted(job.id);
     assert.ok(updatedJob);
     assert.strictEqual(updatedJob.status, JobStatus.FAILED);
     assert.ok(updatedJob.completedAt);

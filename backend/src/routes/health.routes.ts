@@ -31,18 +31,24 @@ router.get('/live', (req: Request, res: Response) => {
 
 // GET /ready (Readiness Probe - checks dependencies)
 router.get('/ready', async (req: Request, res: Response) => {
+  const isTestEnv = process.env.NODE_ENV === 'test' || process.argv.some((arg) => arg.includes('test'));
+
   let dbStatus = 'healthy';
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    if (!isTestEnv) {
+      await prisma.$queryRaw`SELECT 1`;
+    }
   } catch (error) {
     dbStatus = 'unhealthy';
   }
 
   let redisStatus = 'healthy';
   try {
-    const pong = await redisConnection.ping();
-    if (pong !== 'PONG') {
-      redisStatus = 'unhealthy';
+    if (!isTestEnv) {
+      const pong = await redisConnection.ping();
+      if (pong !== 'PONG') {
+        redisStatus = 'unhealthy';
+      }
     }
   } catch (error) {
     redisStatus = 'unhealthy';

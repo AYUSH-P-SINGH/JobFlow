@@ -122,7 +122,7 @@ test.describe('Worker Management Module Tests', { concurrency: 1 }, () => {
       assert.strictEqual(res.status, 200);
       assert.strictEqual(res.body.status, 'OFFLINE');
 
-      const dbWorker = await prisma.workerNode.findUnique({ where: { id: workerId } });
+      const dbWorker = await WorkerRepository.findById(workerId);
       assert.strictEqual(dbWorker?.status, 'OFFLINE');
     });
   });

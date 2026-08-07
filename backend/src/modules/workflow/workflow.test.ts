@@ -335,13 +335,13 @@ test.describe('Workflow Module Integration Tests', { concurrency: 1 }, () => {
           {
             stepId: 'step-1',
             jobType: 'EMAIL',
-            payload: { to: 'slow@example.com', subject: 'Slow', body: 'Running' },
+            payload: { to: 'slow@example.com', subject: 'Slow', body: 'Running', simulateSlow: true },
             dependsOn: [],
           },
           {
             stepId: 'step-2',
             jobType: 'NOTIFICATION',
-            payload: { recipientId: 'admin', message: 'Alert' },
+            payload: { recipientId: 'admin', message: 'Alert', simulateSlow: true },
             dependsOn: ['step-1'],
           },
         ],

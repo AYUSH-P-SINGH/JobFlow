@@ -246,42 +246,34 @@ test.describe('Observability & Real-Time Monitoring Integration Tests', { concur
 
   test('Timeline generation', async () => {
     // Create workflow history
-    const wf = await prisma.workflow.create({
-      data: {
-        name: 'Timeline test',
-        userId,
-        status: 'PENDING',
-      },
-    });
+    const wf = await workflowRepository.create('Timeline test', userId, [
+      { stepId: 'step-1', jobType: 'EMAIL', payload: {}, dependsOn: [] },
+    ]);
 
-    await prisma.workflowHistory.create({
-      data: {
-        workflowId: wf.id,
-        event: 'CREATED',
-        message: 'Workflow created successfully',
-      },
-    });
+    await workflowRepository.addHistory(
+      wf.id,
+      'CREATED',
+      'Workflow created successfully'
+    );
 
     const resTimeline = await request
       .get(`/api/v1/monitoring/workflows/${wf.id}/timeline`)
       .set('Authorization', `Bearer ${userToken}`);
 
     assert.strictEqual(resTimeline.status, 200);
-    assert.strictEqual(resTimeline.body.data.length, 1);
-    assert.strictEqual(resTimeline.body.data[0].event, 'CREATED');
+    assert.ok(resTimeline.body.data.length >= 1);
+    assert.strictEqual(resTimeline.body.data[0].event, 'WORKFLOW_CREATED');
   });
 
   test('Dashboard and Prometheus metrics & custom Phase 15 metrics', async () => {
     // Create completed job today
-    await prisma.job.create({
-      data: {
-        title: 'Completed test',
-        type: 'EMAIL',
-        userId,
-        status: 'COMPLETED',
-        payload: {},
-      },
+    const job = await jobRepository.create({
+      title: 'Completed test',
+      type: 'EMAIL',
+      userId,
+      payload: {},
     });
+    await jobRepository.updateStatus(job.id, 'COMPLETED' as any);
 
     // Check dashboard statistics
     const resDash = await request

@@ -29,6 +29,7 @@ export interface IWorkflowRepository {
   ): Promise<WorkflowStep>;
   linkJobToStep(id: string, jobId: string): Promise<WorkflowStep>;
   addHistory(workflowId: string, event: string, message: string, stepId?: string | null): Promise<WorkflowHistory>;
+  getSteps(workflowId: string): Promise<WorkflowStep[]>;
   getMetrics(): Promise<{
     activeWorkflows: number;
     failedWorkflows: number;
@@ -183,6 +184,13 @@ export class PrismaWorkflowRepository implements IWorkflowRepository {
         event,
         message,
       },
+    });
+  }
+
+  async getSteps(workflowId: string): Promise<WorkflowStep[]> {
+    return prisma.workflowStep.findMany({
+      where: { workflowId },
+      orderBy: { stepNumber: 'asc' },
     });
   }
 
@@ -389,6 +397,11 @@ export class InMemoryWorkflowRepository implements IWorkflowRepository {
     };
   }
 
+  async getSteps(workflowId: string): Promise<WorkflowStep[]> {
+    const wf = this.workflows.get(workflowId);
+    return wf ? wf.steps : [];
+  }
+
   async clear(): Promise<void> {
     this.workflows.clear();
   }
@@ -421,6 +434,7 @@ export class HybridWorkflowRepository implements IWorkflowRepository {
   updateStepStatus(id: string, s: any, sa?: any, ca?: any) { return this.exec(() => this.prismaRepo.updateStepStatus(id, s, sa, ca), () => this.inMemoryRepo.updateStepStatus(id, s, sa, ca)); }
   linkJobToStep(id: string, jobId: string) { return this.exec(() => this.prismaRepo.linkJobToStep(id, jobId), () => this.inMemoryRepo.linkJobToStep(id, jobId)); }
   addHistory(wfId: string, event: string, msg: string, sId?: any) { return this.exec(() => this.prismaRepo.addHistory(wfId, event, msg, sId), () => this.inMemoryRepo.addHistory(wfId, event, msg, sId)); }
+  getSteps(workflowId: string) { return this.exec(() => this.prismaRepo.getSteps(workflowId), () => this.inMemoryRepo.getSteps(workflowId)); }
   getMetrics() { return this.exec(() => this.prismaRepo.getMetrics(), () => this.inMemoryRepo.getMetrics()); }
   clear() {
     this.inMemoryRepo.clear();

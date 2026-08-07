@@ -270,7 +270,7 @@ test.describe('Job Module Integration Tests', { concurrency: 1 }, () => {
     assert.strictEqual(res.status, 404);
 
     // Verify it is still in storage physically
-    const dbJob = await jobRepository.findById(jobId);
+    const dbJob = await jobRepository.findByIdIncludeDeleted(jobId);
     assert.ok(dbJob);
     assert.ok(dbJob.deletedAt);
   });

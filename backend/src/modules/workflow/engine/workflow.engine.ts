@@ -35,15 +35,7 @@ export class WorkflowEngine {
   private static async doTick(workflowId: string): Promise<void> {
     logger.info(`[WorkflowEngine] Ticking workflow: ${workflowId}`);
 
-    const workflow = await prisma.workflow.findUnique({
-      where: { id: workflowId },
-      include: {
-        steps: {
-          include: { job: true },
-          orderBy: { stepNumber: 'asc' },
-        },
-      },
-    });
+    const workflow = await workflowRepository.findById(workflowId);
 
     if (!workflow) {
       logger.error(`[WorkflowEngine] Workflow ${workflowId} not found.`);
@@ -162,9 +154,7 @@ export class WorkflowEngine {
       }
 
       // 2. Refresh steps list from database for accurate progress and completion check
-      const refreshedSteps = await prisma.workflowStep.findMany({
-        where: { workflowId },
-      });
+      const refreshedSteps = await workflowRepository.getSteps(workflowId);
 
       const finishedSteps = refreshedSteps.filter(
         (s) =>

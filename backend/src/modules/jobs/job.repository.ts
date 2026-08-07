@@ -4,6 +4,7 @@ import { Job, CreateJobInput, UpdateJobInput, JobFilter, JobPagination, JobStatu
 export interface IJobRepository {
   create(data: CreateJobInput): Promise<Job>;
   findById(id: string): Promise<Job | null>;
+  findByIdIncludeDeleted(id: string): Promise<Job | null>;
   findAll(
     filters: JobFilter,
     pagination: JobPagination,
@@ -45,6 +46,13 @@ export class PrismaJobRepository implements IJobRepository {
         id,
         deletedAt: null,
       },
+    });
+    return job;
+  }
+
+  async findByIdIncludeDeleted(id: string): Promise<Job | null> {
+    const job = await prisma.job.findUnique({
+      where: { id },
     });
     return job;
   }
@@ -205,6 +213,10 @@ export class InMemoryJobRepository implements IJobRepository {
     return job;
   }
 
+  async findByIdIncludeDeleted(id: string): Promise<Job | null> {
+    return this.jobs.get(id) || null;
+  }
+
   async findAll(
     filters: JobFilter,
     pagination: JobPagination,
@@ -300,6 +312,7 @@ export class HybridJobRepository implements IJobRepository {
 
   create(data: any) { return this.exec(() => this.prismaRepo.create(data), () => this.inMemoryRepo.create(data)); }
   findById(id: string) { return this.exec(() => this.prismaRepo.findById(id), () => this.inMemoryRepo.findById(id)); }
+  findByIdIncludeDeleted(id: string) { return this.exec(() => this.prismaRepo.findByIdIncludeDeleted(id), () => this.inMemoryRepo.findByIdIncludeDeleted(id)); }
   findAll(f: any, p: any, sb?: any, so?: any) { return this.exec(() => this.prismaRepo.findAll(f, p, sb, so), () => this.inMemoryRepo.findAll(f, p, sb, so)); }
   update(id: string, data: any) { return this.exec(() => this.prismaRepo.update(id, data), () => this.inMemoryRepo.update(id, data)); }
   delete(id: string) { return this.exec(() => this.prismaRepo.delete(id), () => this.inMemoryRepo.delete(id)); }
