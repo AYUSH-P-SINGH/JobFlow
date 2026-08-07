@@ -19,26 +19,28 @@ jobs:
           POSTGRES_DB: jobflow
         ports:
           - 5432:5432
+          - 5433:5432
         options: >-
           --health-cmd pg_isready
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
       redis:
         image: redis:7-alpine
         ports:
           - 6379:6379
         options: >-
           --health-cmd "redis-cli ping"
-          --health-interval 10s
+          --health-interval 5s
           --health-timeout 5s
-          --health-retries 5
+          --health-retries 10
     env:
       DATABASE_URL: postgresql://postgres:postgrespassword@localhost:5432/jobflow?schema=public
       REDIS_HOST: localhost
       REDIS_PORT: 6379
       JWT_SECRET: test_jwt_secret_key_which_is_more_than_32_bytes_long_xxxxxx
       CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: test
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -47,8 +49,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: 'backend/package-lock.json'
 
       - name: Install & Build JS SDK
         run: |
@@ -77,7 +77,7 @@ jobs:
         run: |
           cd backend
           npx prisma generate
-          npx prisma db push
+          npx prisma db push --accept-data-loss
 
       - name: Build Backend TypeScript
         run: |
