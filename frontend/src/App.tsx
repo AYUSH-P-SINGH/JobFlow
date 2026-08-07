@@ -16,6 +16,7 @@ function App() {
   const [isRegistering, setIsRegistering] = useState(false);
   const [currentPage, setCurrentPage] = useState<Page>('dashboard');
   const [user, setUser] = useState<any>(null);
+  const [wsConnected, setWsConnected] = useState(false);
 
   const checkAuth = () => {
     const token = localStorage.getItem('jobflow_token');
@@ -46,9 +47,11 @@ function App() {
       const token = localStorage.getItem('jobflow_token');
       if (token) {
         socketService.connect(apiService.getBaseUrl(), token);
+        setWsConnected(true);
       }
     } else {
       socketService.disconnect();
+      setWsConnected(false);
     }
     return () => socketService.disconnect();
   }, [isAuthenticated]);
@@ -62,6 +65,7 @@ function App() {
     apiService.logout();
     setIsAuthenticated(false);
     setUser(null);
+    setWsConnected(false);
   };
 
   if (!isAuthenticated) {
@@ -81,15 +85,24 @@ function App() {
     );
   }
 
+  const pageTitles: Record<Page, string> = {
+    dashboard: 'System Overview & Telemetry',
+    builder: 'Visual DAG Workflow Builder',
+    csv: 'Bulk CSV Batch Import Engine',
+    workers: 'Worker Cluster Topology & Health',
+  };
+
   return (
     <div className="app-layout">
       {/* Sidebar Navigation */}
       <div className="sidebar">
         <div className="sidebar-brand">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          JobFlow Dashboard
+          <div className="brand-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <span className="brand-title">JobFlow</span>
         </div>
         
         <div className="sidebar-menu">
@@ -97,28 +110,36 @@ function App() {
             className={`sidebar-item ${currentPage === 'dashboard' ? 'active' : ''}`}
             onClick={() => setCurrentPage('dashboard')}
           >
-            <span>📊</span> Dashboard Overview
+            <span className="sidebar-item-icon">📊</span>
+            <span>Dashboard Overview</span>
           </div>
           
           <div 
             className={`sidebar-item ${currentPage === 'builder' ? 'active' : ''}`}
             onClick={() => setCurrentPage('builder')}
           >
-            <span>🛠</span> Visual DAG Builder
+            <span className="sidebar-item-icon">🛠</span>
+            <span>Visual DAG Builder</span>
           </div>
 
           <div 
             className={`sidebar-item ${currentPage === 'csv' ? 'active' : ''}`}
             onClick={() => setCurrentPage('csv')}
           >
-            <span>📥</span> CSV Batch Importer
+            <span className="sidebar-item-icon">📥</span>
+            <span>CSV Batch Importer</span>
           </div>
 
           <div 
             className={`sidebar-item ${currentPage === 'workers' ? 'active' : ''}`}
             onClick={() => setCurrentPage('workers')}
           >
-            <span>🖥</span> Worker Clusters
+            <span className="sidebar-item-icon">🖥</span>
+            <span>Worker Clusters</span>
+          </div>
+
+          <div style={{ margin: '16px 0 8px 12px', fontSize: '11px', fontWeight: 700, color: 'var(--text-muted)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
+            External Management
           </div>
 
           <a 
@@ -126,9 +147,9 @@ function App() {
             target="_blank" 
             rel="noopener noreferrer"
             className="sidebar-item"
-            style={{ color: 'var(--text-secondary)' }}
           >
-            <span>⚙</span> BullMQ Admin Board ↗
+            <span className="sidebar-item-icon">⚙</span>
+            <span>BullMQ Admin Board ↗</span>
           </a>
 
           <a 
@@ -136,19 +157,29 @@ function App() {
             target="_blank" 
             rel="noopener noreferrer"
             className="sidebar-item"
-            style={{ color: 'var(--text-secondary)' }}
           >
-            <span>📖</span> Interactive API Swagger ↗
+            <span className="sidebar-item-icon">📖</span>
+            <span>API Swagger Docs ↗</span>
           </a>
         </div>
 
         <div className="sidebar-footer">
-          <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
-            Logged in as:<br/>
-            <b style={{ color: '#fff' }}>{user?.email || 'Developer'}</b>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ width: '36px', height: '36px', borderRadius: '50%', background: 'linear-gradient(135deg, #8b5cf6, #06b6d4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontWeight: 700, fontSize: '14px' }}>
+              {(user?.email?.[0] || 'D').toUpperCase()}
+            </div>
+            <div style={{ overflow: 'hidden' }}>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }}>
+                {user?.email || 'Developer User'}
+              </div>
+              <div style={{ fontSize: '11px', color: 'var(--text-secondary)' }}>
+                Enterprise Operator
+              </div>
+            </div>
           </div>
-          <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%' }}>
-            Sign Out
+
+          <button onClick={handleLogout} className="btn btn-secondary" style={{ width: '100%', marginTop: '6px' }}>
+            <span>🚪</span> Sign Out
           </button>
         </div>
       </div>
@@ -157,14 +188,25 @@ function App() {
       <div className="main-container">
         {/* Top Header info bar */}
         <div className="top-bar">
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>Status:</span>
-            <span className="badge badge-completed" style={{ fontSize: '11px', padding: '2px 8px' }}>
-              SYSTEM OPERATIONAL
-            </span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <h2 style={{ fontSize: '18px', margin: 0, fontWeight: 700 }}>
+              {pageTitles[currentPage]}
+            </h2>
           </div>
-          <div style={{ fontSize: '14px', color: 'var(--text-secondary)' }}>
-            API Host: <code style={{ fontSize: '12px', background: 'var(--bg-secondary)', padding: '2px 6px', borderRadius: '4px' }}>{apiService.getBaseUrl()}</code>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <span className="pulse-dot" style={{ color: wsConnected ? 'var(--emerald-500)' : 'var(--amber-500)' }}></span>
+              <span className={`badge ${wsConnected ? 'badge-completed' : 'badge-pending'}`}>
+                {wsConnected ? 'LIVE WEBSOCKET CONNECTED' : 'CONNECTING...'}
+              </span>
+            </div>
+
+            <div style={{ height: '20px', width: '1px', background: 'var(--border-subtle)' }}></div>
+
+            <div style={{ fontSize: '13px', color: 'var(--text-secondary)' }}>
+              API Base: <code style={{ fontSize: '12px', background: 'rgba(255,255,255,0.06)', padding: '3px 8px', borderRadius: '6px', color: 'var(--cyan-500)', fontFamily: 'var(--mono-font)' }}>{apiService.getBaseUrl()}</code>
+            </div>
           </div>
         </div>
 

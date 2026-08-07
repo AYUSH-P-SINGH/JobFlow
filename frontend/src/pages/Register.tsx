@@ -26,7 +26,6 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
     e.preventDefault();
     setError(null);
 
-    // Password validations
     const validationError = validatePassword(password);
     if (validationError) {
       setError(validationError);
@@ -53,22 +52,23 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          JobFlow
+        <div className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <div className="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <span className="brand-title">JobFlow</span>
         </div>
         <div className="auth-subtitle">Create your production developer account</div>
         
         {error && (
-          <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#f87171', fontSize: '14px', marginBottom: '20px' }}>
-            {error}
+          <div style={{ padding: '12px 16px', background: 'var(--rose-glow)', border: '1px solid rgba(244, 63, 94, 0.4)', borderRadius: '10px', color: '#fca5a5', fontSize: '14px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚠️</span> {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-
           <div className="form-group">
             <label className="form-label">Email Address</label>
             <input 
@@ -88,11 +88,11 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
               className="form-control" 
               value={password} 
               onChange={(e) => setPassword(e.target.value)} 
-              placeholder="Must be strong (min 8 chars)"
+              placeholder="Password123!"
               required 
             />
-            <div style={{ fontSize: '11px', color: '#9ca3af', marginTop: '4px' }}>
-              Requires length ≥ 8, uppercase, lowercase, number, and special character.
+            <div style={{ fontSize: '11px', color: 'var(--text-muted)', marginTop: '6px' }}>
+              Min 8 characters, uppercase, lowercase, digit & symbol.
             </div>
           </div>
 
@@ -103,19 +103,19 @@ export const Register: React.FC<RegisterProps> = ({ onRegisterSuccess, onNavigat
               className="form-control" 
               value={confirmPassword} 
               onChange={(e) => setConfirmPassword(e.target.value)} 
-              placeholder="Repeat password"
+              placeholder="Confirm password"
               required 
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} disabled={loading}>
-            {loading ? <div className="loading-spinner" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Create Account'}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '12px', height: '44px' }} disabled={loading}>
+            {loading ? <div className="loading-spinner" style={{ width: '18px', height: '18px' }}></div> : 'Create Account & Launch'}
           </button>
         </form>
 
-        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#9ca3af' }}>
+        <div style={{ marginTop: '28px', textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
           Already have an account?{' '}
-          <span style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: 600 }} onClick={onNavigateToLogin}>
+          <span style={{ color: 'var(--primary-500)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }} onClick={onNavigateToLogin}>
             Sign In
           </span>
         </div>

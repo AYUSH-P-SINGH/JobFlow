@@ -30,22 +30,23 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
   return (
     <div className="auth-page">
       <div className="auth-card">
-        <div className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
-          <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="#3b82f6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
-          </svg>
-          JobFlow
+        <div className="auth-title" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '12px' }}>
+          <div className="brand-icon">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" />
+            </svg>
+          </div>
+          <span className="brand-title">JobFlow</span>
         </div>
-        <div className="auth-subtitle">Distributed Job Queue & Orchestration Platform</div>
+        <div className="auth-subtitle">Distributed Job Queue & Workflow Orchestration Platform</div>
         
         {error && (
-          <div style={{ padding: '12px', background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.3)', borderRadius: '8px', color: '#f87171', fontSize: '14px', marginBottom: '20px' }}>
-            {error}
+          <div style={{ padding: '12px 16px', background: 'var(--rose-glow)', border: '1px solid rgba(244, 63, 94, 0.4)', borderRadius: '10px', color: '#fca5a5', fontSize: '14px', marginBottom: '24px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span>⚠️</span> {error}
           </div>
         )}
 
         <form onSubmit={handleSubmit}>
-
           <div className="form-group">
             <label className="form-label">Email Address</label>
             <input 
@@ -53,7 +54,7 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
               className="form-control" 
               value={email} 
               onChange={(e) => setEmail(e.target.value)} 
-              placeholder="developer@jobflow.io"
+              placeholder="admin@jobflow.io"
               required 
             />
           </div>
@@ -70,15 +71,15 @@ export const Login: React.FC<LoginProps> = ({ onLoginSuccess, onNavigateToRegist
             />
           </div>
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '10px' }} disabled={loading}>
-            {loading ? <div className="loading-spinner" style={{ width: '16px', height: '16px', borderTopColor: '#fff' }}></div> : 'Sign In'}
+          <button type="submit" className="btn btn-primary" style={{ width: '100%', marginTop: '12px', height: '44px' }} disabled={loading}>
+            {loading ? <div className="loading-spinner" style={{ width: '18px', height: '18px' }}></div> : 'Sign In to Workspace'}
           </button>
         </form>
 
-        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#9ca3af' }}>
-          Don't have an account?{' '}
-          <span style={{ color: '#3b82f6', cursor: 'pointer', fontWeight: 600 }} onClick={onNavigateToRegister}>
-            Create one
+        <div style={{ marginTop: '28px', textAlign: 'center', fontSize: '14px', color: 'var(--text-secondary)' }}>
+          Don't have an account yet?{' '}
+          <span style={{ color: 'var(--primary-500)', cursor: 'pointer', fontWeight: 600, textDecoration: 'underline' }} onClick={onNavigateToRegister}>
+            Create Developer Account
           </span>
         </div>
       </div>
