@@ -2,9 +2,9 @@ name: JobFlow CI/CD Pipeline
 
 on:
   push:
-    branches: [ main, master ]
+    branches: [ "**" ]
   pull_request:
-    branches: [ main, master ]
+    branches: [ "**" ]
 
 jobs:
   test-and-verify:
