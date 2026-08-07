@@ -50,6 +50,17 @@ jobs:
         with:
           node-version: '20'
 
+      - name: Install Backend Dependencies
+        run: |
+          cd backend
+          npm install
+
+      - name: Generate Prisma Client & Migrate Schema
+        run: |
+          cd backend
+          npx prisma generate
+          npx prisma db push --accept-data-loss
+
       - name: Install & Build JS SDK
         run: |
           cd packages/sdk-js
@@ -67,17 +78,6 @@ jobs:
           cd frontend
           npm install
           npm run build
-
-      - name: Install Backend Dependencies
-        run: |
-          cd backend
-          npm install
-
-      - name: Generate Prisma Client & Migrate Schema
-        run: |
-          cd backend
-          npx prisma generate
-          npx prisma db push --accept-data-loss
 
       - name: Build Backend TypeScript
         run: |

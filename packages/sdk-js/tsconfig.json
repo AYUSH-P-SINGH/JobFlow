@@ -9,8 +9,7 @@
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
-    "typeRoots": ["../../backend/node_modules/@types"]
+    "forceConsistentCasingInFileNames": true
   },
   "include": ["src/**/*"]
 }
