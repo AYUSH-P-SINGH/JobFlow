@@ -94,25 +94,29 @@ jobs:
     needs: test-and-verify
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Set up QEMU
+        if: env.DOCKERHUB_USERNAME != ''
         uses: actions/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        if: env.DOCKERHUB_USERNAME != ''
         uses: actions/setup-buildx-action@v3
 
       - name: Login to DockerHub
-        if: secrets.DOCKERHUB_USERNAME != ''
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/login-action@v3
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       - name: Build and Push Backend Docker Image
-        if: secrets.DOCKERHUB_USERNAME != ''
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/build-push-action@v5
         with:
           context: ./backend
@@ -125,7 +129,7 @@ jobs:
           cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:buildcache,mode=max
 
       - name: Build and Push Frontend Docker Image
-        if: secrets.DOCKERHUB_USERNAME != ''
+        if: env.DOCKERHUB_USERNAME != ''
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
@@ -142,25 +146,28 @@ jobs:
     needs: build-and-push
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    env:
+      KUBECONFIG: ${{ secrets.KUBECONFIG }}
+      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
       - name: Install Helm
-        if: secrets.KUBECONFIG != ''
+        if: env.KUBECONFIG != ''
         uses: azure/setup-helm@v4
         with:
           version: 'v3.12.0'
 
       - name: Set up Kubeconfig
-        if: secrets.KUBECONFIG != ''
+        if: env.KUBECONFIG != ''
         uses: azure/k8s-set-context@v3
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG }}
 
       - name: Deploy to Kubernetes with Helm
-        if: secrets.KUBECONFIG != ''
+        if: env.KUBECONFIG != ''
         run: |
           helm upgrade --install jobflow ./deployment/helm \
             --namespace jobflow \
