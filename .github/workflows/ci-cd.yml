@@ -53,25 +53,25 @@ jobs:
       - name: Install & Build JS SDK
         run: |
           cd packages/sdk-js
-          npm ci
+          npm install
           npm run build
 
       - name: Install & Build CLI Tool
         run: |
           cd packages/cli
-          npm ci
+          npm install
           npm run build
 
       - name: Install & Build Frontend SPA
         run: |
           cd frontend
-          npm ci
+          npm install
           npm run build
 
       - name: Install Backend Dependencies
         run: |
           cd backend
-          npm ci
+          npm install
 
       - name: Generate Prisma Client & Migrate Schema
         run: |
