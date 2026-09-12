@@ -1,14 +1,22 @@
-name: JobFlow CI/CD Pipeline
+name: JobFlow Production CI/CD & Kubernetes Pipeline
 
 on:
   push:
-    branches: [ "**" ]
+    branches: [ "main", "develop", "release/**" ]
   pull_request:
-    branches: [ "**" ]
+    branches: [ "main", "develop" ]
+
+permissions:
+  contents: read
+  packages: write
+  security-events: write
 
 jobs:
+  # ============================================================================
+  # 1. UNIT & INTEGRATION TESTS
+  # ============================================================================
   test-and-verify:
-    name: Build & Test All Services
+    name: 🧪 Unit & Integration Tests
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -42,134 +50,245 @@ jobs:
       CORS_ORIGIN: http://localhost:3000
       NODE_ENV: test
     steps:
-      - name: Checkout Code
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: ⚙️ Setup Node.js 20
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
 
-      - name: Install Backend Dependencies
+      - name: 📦 Install Backend Dependencies
         run: |
           cd backend
-          npm install
+          npm ci
 
-      - name: Generate Prisma Client & Migrate Schema
+      - name: 🗄️ Generate Prisma Client & Run DB Push
         run: |
           cd backend
           npx prisma generate
           npx prisma db push --accept-data-loss
 
-      - name: Install & Build JS SDK
+      - name: 🔨 Build JS SDK & CLI Packages
         run: |
-          cd packages/sdk-js
-          npm install
-          npm run build
+          cd packages/sdk-js && npm ci && npm run build
+          cd ../cli && npm ci && npm run build
 
-      - name: Install & Build CLI Tool
-        run: |
-          cd packages/cli
-          npm install
-          npm run build
-
-      - name: Install & Build Frontend SPA
+      - name: 🌐 Install & Build Frontend SPA
         run: |
           cd frontend
-          npm install
+          npm ci
           npm run build
 
-      - name: Build Backend TypeScript
+      - name: 🏗️ Compile Backend TypeScript
         run: |
           cd backend
           npm run build
 
-      - name: Run Backend Integration & Unit Tests
+      - name: 🚀 Run Backend Test Suite (Node Native Test Runner)
         run: |
           cd backend
           npm test
 
-  build-and-push:
-    name: Build & Push Docker Images
-    needs: test-and-verify
+  # ============================================================================
+  # 2. SECURITY & VULNERABILITY AUDIT
+  # ============================================================================
+  security-scan:
+    name: 🛡️ Security & Vulnerability Scan
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
-    env:
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
-      - name: Checkout Code
+      - name: 📥 Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up QEMU
-        if: env.DOCKERHUB_USERNAME != ''
-        uses: actions/setup-qemu-action@v3
+      - name: ⚙️ Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
-      - name: Set up Docker Buildx
-        if: env.DOCKERHUB_USERNAME != ''
-        uses: actions/setup-buildx-action@v3
+      - name: 🔍 NPM Dependency Audit
+        run: |
+          cd backend && npm audit --audit-level=high || true
+          cd ../frontend && npm audit --audit-level=high || true
 
-      - name: Login to DockerHub
-        if: env.DOCKERHUB_USERNAME != ''
+      - name: 🔒 Run Trivy Vulnerability & Misconfig Scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          severity: 'CRITICAL,HIGH'
+          exit-code: '0'
+
+  # ============================================================================
+  # 3. DOCKER BUILD & PUSH TO GITHUB CONTAINER REGISTRY (GHCR)
+  # ============================================================================
+  build-and-push-ghcr:
+    name: 🐳 Docker Build & Push (GHCR)
+    needs: [test-and-verify, security-scan]
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.event_name == 'pull_request'
+    outputs:
+      backend-tag: ${{ steps.meta-backend.outputs.tags }}
+      frontend-tag: ${{ steps.meta-frontend.outputs.tags }}
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: ⚙️ Setup Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 🔑 Login to GitHub Container Registry (GHCR)
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and Push Backend Docker Image
-        if: env.DOCKERHUB_USERNAME != ''
+      - name: 🏷️ Extract Metadata for Backend Image
+        id: meta-backend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/jobflow-backend
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            latest
+
+      - name: 🏷️ Extract Metadata for Frontend Image
+        id: meta-frontend
+        uses: docker/metadata-action@v5
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/jobflow-frontend
+          tags: |
+            type=sha,format=short
+            type=ref,event=branch
+            type=semver,pattern={{version}}
+            latest
+
+      - name: 🚀 Build & Push Backend/Worker Image
         uses: docker/build-push-action@v5
         with:
           context: ./backend
           file: ./backend/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend:buildcache,mode=max
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta-backend.outputs.tags }}
+          labels: ${{ steps.meta-backend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-      - name: Build and Push Frontend Docker Image
-        if: env.DOCKERHUB_USERNAME != ''
+      - name: 🚀 Build & Push Frontend Nginx Image
         uses: docker/build-push-action@v5
         with:
           context: ./frontend
           file: ./frontend/Dockerfile
-          push: true
-          tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:${{ github.sha }}
-          cache-from: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:buildcache
-          cache-to: type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-frontend:buildcache,mode=max
+          push: ${{ github.ref == 'refs/heads/main' }}
+          tags: ${{ steps.meta-frontend.outputs.tags }}
+          labels: ${{ steps.meta-frontend.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
-  deploy:
-    name: Deploy to Kubernetes Cluster
-    needs: build-and-push
+  # ============================================================================
+  # 4. END-TO-END KUBERNETES VALIDATION IN CI (KIND)
+  # ============================================================================
+  e2e-kubernetes-kind:
+    name: ☸️ E2E Kubernetes Validation (Kind)
+    needs: [build-and-push-ghcr]
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 📦 Create Local Kind Kubernetes Cluster
+        uses: helm/kind-action@v1.10.0
+        with:
+          cluster_name: jobflow-ci-cluster
+          wait: 120s
+
+      - name: 🔨 Build Local Docker Images for Kind Testing
+        run: |
+          docker build -t jobflow-backend:ci -f backend/Dockerfile backend
+          docker build -t jobflow-frontend:ci -f frontend/Dockerfile frontend
+          kind load docker-image jobflow-backend:ci --name jobflow-ci-cluster
+          kind load docker-image jobflow-frontend:ci --name jobflow-ci-cluster
+
+      - name: ⚙️ Setup Helm 3
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: 🚀 Deploy JobFlow Helm Chart into Kind Cluster
+        run: |
+          kubectl create namespace jobflow
+          helm upgrade --install jobflow ./deployment/helm \
+            --namespace jobflow \
+            --set image.repository=jobflow-backend \
+            --set image.tag=ci \
+            --set image.pullPolicy=Never \
+            --set api.replicaCount=2 \
+            --set worker.replicaCount=2 \
+            --set postgres.resources.requests.memory=128Mi \
+            --set redis.resources.requests.memory=64Mi \
+            --set global.jwtSecret="ci_test_jwt_secret_key_long_enough_12345" \
+            --wait --timeout=180s
+
+      - name: 🩺 Verify Kubernetes Pod Rollouts & Health
+        run: |
+          kubectl get pods -n jobflow
+          kubectl get services -n jobflow
+          kubectl rollout status deployment/jobflow-api -n jobflow --timeout=120s
+          kubectl rollout status deployment/jobflow-worker -n jobflow --timeout=120s
+
+      - name: 🔬 Execute Live In-Cluster Health Probe Test
+        run: |
+          # Port-forward API service and check /health endpoint
+          kubectl port-forward -n jobflow svc/jobflow-api 5000:5000 &
+          sleep 5
+          HEALTH_STATUS=$(curl -s http://localhost:5000/health || echo "FAILED")
+          echo "Health Response: $HEALTH_STATUS"
+          if [[ "$HEALTH_STATUS" != *"alive"* ]]; then
+            echo "❌ Health check failed!"
+            kubectl logs -n jobflow -l app=jobflow-api --tail=50
+            exit 1
+          fi
+          echo "✅ In-Cluster Kubernetes health check PASSED!"
+
+  # ============================================================================
+  # 5. CLOUD KUBERNETES DEPLOYMENT (OPTIONAL PRODUCTION / AWS / GCP)
+  # ============================================================================
+  deploy-cloud:
+    name: ☁️ Cloud Kubernetes Deploy (Helm)
+    needs: [e2e-kubernetes-kind]
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     env:
       KUBECONFIG: ${{ secrets.KUBECONFIG }}
-      DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
     steps:
-      - name: Checkout Code
+      - name: 📥 Checkout Repository
+        if: env.KUBECONFIG != ''
         uses: actions/checkout@v4
 
-      - name: Install Helm
+      - name: ⚙️ Setup Helm
         if: env.KUBECONFIG != ''
         uses: azure/setup-helm@v4
         with:
-          version: 'v3.12.0'
+          version: 'v3.14.0'
 
-      - name: Set up Kubeconfig
+      - name: 🔑 Set up Kubeconfig Context
         if: env.KUBECONFIG != ''
         uses: azure/k8s-set-context@v3
         with:
           method: kubeconfig
           kubeconfig: ${{ secrets.KUBECONFIG }}
 
-      - name: Deploy to Kubernetes with Helm
+      - name: 🚀 Upgrade Production Helm Release
         if: env.KUBECONFIG != ''
         run: |
           helm upgrade --install jobflow ./deployment/helm \
             --namespace jobflow \
-            --set image.repository=${{ secrets.DOCKERHUB_USERNAME }}/jobflow-backend \
-            --set image.tag=${{ github.sha }}
+            --create-namespace \
+            --set image.repository=ghcr.io/${{ github.repository_owner }}/jobflow-backend \
+            --set image.tag=${{ github.sha }} \
+            --wait --timeout=300s
