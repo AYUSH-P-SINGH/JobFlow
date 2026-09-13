@@ -400,4 +400,95 @@ test.describe('Workflow Module Integration Tests', { concurrency: 1 }, () => {
     assert.ok(res.body.data.activeWorkflows !== undefined);
     assert.ok(res.body.data.successRate !== undefined);
   });
+
+  // 8. Duplicate Callback Idempotency Test
+  test('WorkflowEngine.handleStepCompletion - duplicate callback is idempotent', async () => {
+    const res = await request
+      .post('/api/v1/workflows')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Idempotent Callback Test',
+        steps: [
+          {
+            stepId: 'step-single',
+            jobType: 'EMAIL',
+            payload: { to: 'dup@example.com' },
+            dependsOn: [],
+          },
+        ],
+      });
+
+    assert.strictEqual(res.status, 201);
+    const wfId = res.body.data.id;
+    const workflow = await waitForWorkflow(wfId);
+    assert.strictEqual(workflow.status, WorkflowStatus.COMPLETED);
+
+    const step = workflow.steps[0];
+    assert.ok(step.jobId);
+
+    const initialHistoryCount = workflow.histories.length;
+
+    // Send duplicate callback for the same job
+    const { WorkflowEngine } = await import('./engine/workflow.engine.js');
+    await WorkflowEngine.handleStepCompletion(step.jobId, { status: 'success' });
+    await WorkflowEngine.handleStepCompletion(step.jobId, { status: 'success' });
+
+    // Fetch refreshed workflow
+    const refreshed = await workflowRepository.findById(wfId);
+    assert.strictEqual(refreshed?.status, WorkflowStatus.COMPLETED);
+    // History count should NOT increase from duplicate callbacks
+    assert.strictEqual(refreshed?.histories.length, initialHistoryCount);
+  });
+
+  // 9. Fan-in DAG Topology Test (A -> B, A -> C, [B, C] -> D)
+  test('POST /api/v1/workflows - Fan-in DAG execution topology', async () => {
+    const res = await request
+      .post('/api/v1/workflows')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Fan-in Pipeline',
+        steps: [
+          { stepId: 'A', jobType: 'REPORT', payload: {}, dependsOn: [] },
+          { stepId: 'B', jobType: 'EMAIL', payload: {}, dependsOn: ['A'] },
+          { stepId: 'C', jobType: 'NOTIFICATION', payload: {}, dependsOn: ['A'] },
+          { stepId: 'D', jobType: 'IMAGE', payload: {}, dependsOn: ['B', 'C'] },
+        ],
+      });
+
+    assert.strictEqual(res.status, 201);
+    const wfId = res.body.data.id;
+    const workflow = await waitForWorkflow(wfId);
+
+    assert.strictEqual(workflow.status, WorkflowStatus.COMPLETED);
+    assert.strictEqual(workflow.progress, 100);
+    assert.strictEqual(workflow.steps.length, 4);
+    for (const s of workflow.steps) {
+      assert.strictEqual(s.status, WorkflowStatus.COMPLETED);
+    }
+  });
+
+  // 10. Concurrency / Distributed Lock Test (Multiple Simultaneous Ticks)
+  test('WorkflowEngine.tick - concurrent ticks resolve safely without duplicate transitions', async () => {
+    const res = await request
+      .post('/api/v1/workflows')
+      .set('Authorization', `Bearer ${token}`)
+      .send({
+        name: 'Concurrent Tick Pipeline',
+        steps: [
+          { stepId: 'c1', jobType: 'EMAIL', payload: {}, dependsOn: [] },
+          { stepId: 'c2', jobType: 'REPORT', payload: {}, dependsOn: ['c1'] },
+        ],
+      });
+
+    const wfId = res.body.data.id;
+    const { WorkflowEngine } = await import('./engine/workflow.engine.js');
+
+    // Launch 20 ticks simultaneously
+    await Promise.all(
+      Array.from({ length: 20 }).map(() => WorkflowEngine.tick(wfId))
+    );
+
+    const workflow = await waitForWorkflow(wfId);
+    assert.strictEqual(workflow.status, WorkflowStatus.COMPLETED);
+  });
 });

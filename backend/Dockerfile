@@ -3,6 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
+RUN apk add --no-cache openssl
+
 COPY package*.json tsconfig.json ./
 COPY prisma ./prisma/
 
@@ -12,23 +14,21 @@ COPY src ./src/
 
 RUN npx prisma generate
 RUN npm run build
+RUN npm prune --production
 
 # Stage 2: Runtime stage
 FROM node:20-alpine AS runner
 
 WORKDIR /usr/src/app
 
+RUN apk add --no-cache openssl
+
 ENV NODE_ENV=production
 
-# Install only production dependencies
-COPY package*.json ./
-RUN npm ci --omit=dev
-
-# Copy prisma schema and regenerate prisma client
-COPY prisma ./prisma/
-RUN npx prisma generate
-
-# Copy transpiled code from builder stage
+# Copy node_modules and prisma artifacts from builder
+COPY --from=builder /usr/src/app/node_modules ./node_modules
+COPY --from=builder /usr/src/app/package*.json ./
+COPY --from=builder /usr/src/app/prisma ./prisma
 COPY --from=builder /usr/src/app/dist ./dist
 
 # Run as non-root user 'node'

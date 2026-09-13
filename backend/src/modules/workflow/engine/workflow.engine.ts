@@ -199,12 +199,20 @@ export class WorkflowEngine {
    * Worker callback when a step job completes successfully.
    */
   public static async handleStepCompletion(jobId: string, result: any): Promise<void> {
-    const step = await prisma.workflowStep.findUnique({
-      where: { jobId },
-    });
+    const step = await workflowRepository.findStepByJobId(jobId);
 
     if (!step) {
       // Not a workflow job, ignore
+      return;
+    }
+
+    // Idempotency: If step is already in a terminal state, ignore duplicate callbacks
+    if (step.status === WorkflowStatus.COMPLETED) {
+      logger.warn(`[WorkflowEngine] Step "${step.stepId}" (Job ${jobId}) is already COMPLETED. Ignoring duplicate completion callback.`);
+      return;
+    }
+    if (step.status === WorkflowStatus.FAILED || step.status === WorkflowStatus.CANCELLED) {
+      logger.warn(`[WorkflowEngine] Step "${step.stepId}" (Job ${jobId}) is already in terminal state "${step.status}". Ignoring completion callback.`);
       return;
     }
 
@@ -238,12 +246,16 @@ export class WorkflowEngine {
    * Worker callback when a step job fails.
    */
   public static async handleStepFailure(jobId: string, errorPayload: any): Promise<void> {
-    const step = await prisma.workflowStep.findUnique({
-      where: { jobId },
-    });
+    const step = await workflowRepository.findStepByJobId(jobId);
 
     if (!step) {
       // Not a workflow job, ignore
+      return;
+    }
+
+    // Idempotency: If step is already in a terminal state, ignore duplicate callbacks
+    if (step.status === WorkflowStatus.FAILED || step.status === WorkflowStatus.CANCELLED || step.status === WorkflowStatus.COMPLETED) {
+      logger.warn(`[WorkflowEngine] Step "${step.stepId}" (Job ${jobId}) is already in state "${step.status}". Ignoring duplicate failure callback.`);
       return;
     }
 
@@ -261,10 +273,7 @@ export class WorkflowEngine {
     );
 
     // Cancel all remaining pending downstream steps due to cascading failure
-    const workflow = await prisma.workflow.findUnique({
-      where: { id: step.workflowId },
-      include: { steps: true },
-    });
+    const workflow = await workflowRepository.findById(step.workflowId);
 
     if (workflow) {
       const cascadingStepIds = DependencyResolver.resolveCascadingCancellations(workflow.steps, [step.stepId]);

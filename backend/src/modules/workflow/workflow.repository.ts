@@ -30,6 +30,7 @@ export interface IWorkflowRepository {
   linkJobToStep(id: string, jobId: string): Promise<WorkflowStep>;
   addHistory(workflowId: string, event: string, message: string, stepId?: string | null): Promise<WorkflowHistory>;
   getSteps(workflowId: string): Promise<WorkflowStep[]>;
+  findStepByJobId(jobId: string): Promise<WorkflowStep | null>;
   getMetrics(): Promise<{
     activeWorkflows: number;
     failedWorkflows: number;
@@ -191,6 +192,12 @@ export class PrismaWorkflowRepository implements IWorkflowRepository {
     return prisma.workflowStep.findMany({
       where: { workflowId },
       orderBy: { stepNumber: 'asc' },
+    });
+  }
+
+  async findStepByJobId(jobId: string): Promise<WorkflowStep | null> {
+    return prisma.workflowStep.findUnique({
+      where: { jobId },
     });
   }
 
@@ -372,6 +379,14 @@ export class InMemoryWorkflowRepository implements IWorkflowRepository {
     return hist;
   }
 
+  async findStepByJobId(jobId: string): Promise<WorkflowStep | null> {
+    for (const wf of this.workflows.values()) {
+      const step = wf.steps.find((s) => s.jobId === jobId);
+      if (step) return step;
+    }
+    return null;
+  }
+
   async getMetrics(): Promise<{
     activeWorkflows: number;
     failedWorkflows: number;
@@ -435,6 +450,7 @@ export class HybridWorkflowRepository implements IWorkflowRepository {
   linkJobToStep(id: string, jobId: string) { return this.exec(() => this.prismaRepo.linkJobToStep(id, jobId), () => this.inMemoryRepo.linkJobToStep(id, jobId)); }
   addHistory(wfId: string, event: string, msg: string, sId?: any) { return this.exec(() => this.prismaRepo.addHistory(wfId, event, msg, sId), () => this.inMemoryRepo.addHistory(wfId, event, msg, sId)); }
   getSteps(workflowId: string) { return this.exec(() => this.prismaRepo.getSteps(workflowId), () => this.inMemoryRepo.getSteps(workflowId)); }
+  findStepByJobId(jobId: string) { return this.exec(() => this.prismaRepo.findStepByJobId(jobId), () => this.inMemoryRepo.findStepByJobId(jobId)); }
   getMetrics() { return this.exec(() => this.prismaRepo.getMetrics(), () => this.inMemoryRepo.getMetrics()); }
   clear() {
     this.inMemoryRepo.clear();
