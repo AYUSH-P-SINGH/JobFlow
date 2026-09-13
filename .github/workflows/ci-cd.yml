@@ -227,6 +227,7 @@ jobs:
             --set image.repository=jobflow-backend \
             --set image.tag=ci \
             --set image.pullPolicy=Never \
+            --set ingress.enabled=false \
             --set api.replicaCount=2 \
             --set worker.replicaCount=2 \
             --set postgres.resources.requests.memory=128Mi \
@@ -244,7 +245,7 @@ jobs:
       - name: 🔬 Execute Live In-Cluster Health Probe Test
         run: |
           # Port-forward API service and check /health endpoint
-          kubectl port-forward -n jobflow svc/jobflow-api 5000:5000 &
+          kubectl port-forward -n jobflow svc/jobflow-api-service 5000:5000 &
           sleep 5
           HEALTH_STATUS=$(curl -s http://localhost:5000/health || echo "FAILED")
           echo "Health Response: $HEALTH_STATUS"
